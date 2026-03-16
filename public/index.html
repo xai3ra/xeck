@@ -1,0 +1,2203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xeck - Contract Management</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/zh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-canvas: #FFFFFF;
+            --bg-surface: #FFFFFF;
+            --bg-surface-alt: #F9FAFB;
+            
+            --text-primary: #111111;
+            --text-secondary: #4B5563;
+            --text-tertiary: #9CA3AF;
+            
+            --border-light: #EEEEEE;
+            --border-medium: #111111;
+            
+            --accent-warning: #F97316;
+            --accent-warning-bg: #FACC15;
+            --accent-warning-light: #FEF9C3;
+
+            --radius-3xl: 24px;
+            --radius-2xl: 16px;
+            --radius-pill: 9999px;
+
+            --font-family: 'Inter', sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-canvas);
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            font-size: 14px; /* Reduced from default */
+        }
+
+        /* Typography sizing reduced */
+        .text-micro-caps {
+            font-size: 0.625rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .text-heading-lg {
+            font-size: 1.5rem; /* Down from 2rem */
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+
+        .text-heading-md {
+            font-size: 1.125rem;
+            font-weight: 700;
+            letter-spacing: -0.01em;
+        }
+
+        .text-value-xl {
+            font-size: 2rem; /* Down from 3rem */
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        /* Layout */
+        .sidebar {
+            width: 220px; /* Down from 260px */
+            background-color: var(--bg-surface);
+            border-right: 1px solid var(--border-light);
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem 1rem;
+            z-index: 10;
+        }
+
+        .main-content {
+            flex: 1;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-surface-alt);
+            overflow-y: auto;
+        }
+
+        .content-inner {
+            padding: 2rem 2.5rem; /* Down from 3rem 4rem */
+            max-width: 1000px; /* Slightly narrower */
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        /* Header / Logo */
+        .logo {
+            font-size: 1.125rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 8px;
+        }
+
+        .logo-mark {
+            width: 18px;
+            height: 18px;
+            background-color: #000000;
+            border-radius: 4px;
+        }
+
+        /* Nav Menu */
+        .nav-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            flex: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--radius-pill);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            color: var(--text-primary);
+            background-color: var(--bg-surface-alt);
+        }
+
+        .nav-item.active {
+            background-color: #000000;
+            color: #FFFFFF;
+        }
+
+        .nav-item svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        /* User Profile */
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 1rem 0.5rem;
+            border-top: 1px solid var(--border-light);
+            margin-top: auto;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        
+        .user-profile:hover {
+            background: var(--bg-surface-alt);
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .user-name {
+            font-weight: 700;
+            font-size: 0.8125rem;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        .user-email {
+            font-size: 0.6875rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+        }
+
+        /* Main Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2rem;
+        }
+
+        .greeting p {
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+            font-size: 0.9375rem;
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background-color: #000000;
+            color: #FFFFFF;
+            border: none;
+            padding: 10px 18px; /* Reduced */
+            border-radius: var(--radius-pill);
+            font-weight: 600;
+            font-size: 0.8125rem; /* Reduced */
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.02);
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .metric-card {
+            padding: 2rem;
+            border-radius: var(--radius-3xl);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            border: 2px solid #000000;
+            background-color: var(--bg-surface);
+        }
+
+        .metric-card.solid {
+            background-color: #000000;
+            color: #FFFFFF;
+        }
+        
+        .metric-card.solid .text-micro-caps {
+            color: #FFFFFF;
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Contracts List */
+        .section-header {
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .list-container {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .list-row {
+            display: grid;
+            grid-template-columns: 40px 2.5fr 1.2fr 1fr 1.5fr 1.5fr;
+            align-items: center;
+            background-color: #FFFFFF;
+            padding: 1.25rem 1.5rem;
+            border-radius: var(--radius-2xl);
+            border: 2px solid var(--border-light);
+            transition: all 0.2s ease;
+            gap: 1rem;
+            cursor: pointer;
+        }
+
+        .list-row:hover {
+            border-color: #000000;
+        }
+
+        .provider-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background-color: #FFFFFF;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #000000;
+        }
+
+        .provider-icon svg {
+            width: 18px;
+            height: 18px;
+            color: #000000;
+        }
+
+        .contract-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .contract-title {
+            font-weight: 700;
+            font-size: 0.9375rem;
+        }
+
+        .contract-sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .cost-value {
+            font-weight: 700;
+            font-size: 0.9375rem;
+        }
+
+        .date-value {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+        }
+
+        .permanencia-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            background-color: var(--bg-surface-alt);
+            border: 2px solid #000000;
+            border-radius: var(--radius-pill);
+            font-size: 0.6875rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            width: fit-content;
+            white-space: nowrap;
+        }
+
+        .permanencia-badge.ending {
+            background-color: #FACC15;
+            border-color: #000000;
+            color: #000000;
+        }
+
+        .permanencia-badge.ended {
+            background-color: #D1FAE5;
+            border-color: #000000;
+            color: #065F46;
+        }
+
+        .date-label {
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-tertiary);
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .color-warning { color: #F97316 !important; }
+
+        /* Detail slide-over */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+        }
+        .detail-item .label {
+            font-size: 0.625rem;
+            color: var(--text-secondary);
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .detail-item .value {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+        .warning-card {
+            background-color: #FACC15;
+            border: 2px solid #000000;
+            border-radius: var(--radius-2xl);
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .warning-card .wc-title {
+            font-weight: 800;
+            font-size: 0.8125rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .warning-card .wc-desc {
+            font-size: 0.875rem;
+            line-height: 1.5;
+            font-weight: 500;
+        }
+        .doc-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 2px solid var(--border-light);
+            border-radius: 10px;
+            transition: border-color 0.2s;
+        }
+        .doc-item:hover { border-color: #000000; }
+        .doc-item a { font-weight: 700; font-size: 0.875rem; color: #111111; text-decoration: none; flex: 1; }
+        .doc-item a:hover { text-decoration: underline; }
+        .delete-btn {
+            background: none;
+            border: 2px solid #EF4444;
+            color: #EF4444;
+            border-radius: var(--radius-pill);
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .delete-btn:hover { background: #EF4444; color: #fff; }
+        .no-perm-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            background-color: #F3F4F6;
+            border: 2px solid #D1D5DB;
+            border-radius: var(--radius-pill);
+            font-size: 0.6875rem;
+            font-weight: 700;
+            color: #6B7280;
+            white-space: nowrap;
+        }
+        
+        /* Modals & Slide-overs */
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            z-index: 40;
+            display: none;
+        }
+
+        .slide-over {
+            position: fixed;
+            top: 0.5rem;
+            right: 0.5rem;
+            bottom: 0.5rem;
+            width: 420px;
+            background-color: #FFFFFF;
+            border-radius: var(--radius-3xl);
+            z-index: 50;
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            border: 2px solid #000000;
+            transform: translateX(110%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: -8px 0 32px rgba(0,0,0,0.12);
+        }
+
+        .ai-btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #000000;
+            color: #FFFFFF;
+            border: none;
+            padding: 12px 18px;
+            border-radius: var(--radius-pill);
+            font-weight: 700;
+            font-size: 0.875rem;
+            cursor: pointer;
+            width: 100%;
+            justify-content: center;
+            transition: opacity 0.2s;
+            margin-top: 0.75rem;
+        }
+        .ai-btn:hover { opacity: 0.8; }
+        .ai-btn.loading { opacity: 0.6; cursor: not-allowed; }
+
+        .detail-upload-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #111111;
+            cursor: pointer;
+            border: 2px solid #000000;
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+            transition: all 0.2s;
+        }
+        .detail-upload-label:hover { background: #000; color: #fff; }
+        
+        .slide-over.show {
+            transform: translateX(0);
+        }
+
+        .slide-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #FFFFFF;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .close-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid var(--border-light);
+            background: #F9FAFB;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #4B5563;
+            transition: all 0.2s;
+        }
+
+        .close-btn:hover {
+            background: #E5E7EB;
+            color: #111111;
+        }
+
+        .slide-content {
+            padding: 1.5rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Form styling */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .form-control {
+            padding: 10px 14px;
+            border: 1px solid #D1D5DB;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-family: var(--font-family);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #111111;
+            box-shadow: 0 0 0 2px rgba(17, 17, 17, 0.1);
+        }
+        
+        .upload-area {
+            border: 1px dashed #D1D5DB;
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background-color: #F9FAFB;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            background-color: #F3F4F6;
+            border-color: #9CA3AF;
+        }
+        
+        .upload-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #FFFFFF;
+            border: 1px solid #E5E7EB;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4B5563;
+        }
+        
+        .upload-text p {
+            font-weight: 600;
+            font-size: 0.875rem;
+            text-align: center;
+        }
+        
+        .upload-text span {
+            display: block;
+            text-align: center;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            margin-top: auto;
+            padding-top: 1.5rem;
+        }
+        
+        .btn-secondary {
+            background-color: #FFFFFF;
+            color: #111111;
+            border: 1px solid #D1D5DB;
+            padding: 10px 18px;
+            border-radius: var(--radius-pill);
+            font-weight: 600;
+            font-size: 0.8125rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            flex: 1;
+        }
+        .btn-secondary:hover {
+            background-color: #F9FAFB;
+        }
+
+        /* View Segregation */
+        .view-section {
+            display: none;
+        }
+        .view-section.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Settings Card Structure */
+        .settings-card {
+            background: #FFFFFF;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-2xl);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .settings-card-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Login Modal Centered */
+        #loginModal, #deleteConfirmModal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -48%) scale(0.96);
+            background: #FFFFFF;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 20px;
+            padding: 2rem;
+            z-index: 9999;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.2s;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        #loginModal.show, #deleteConfirmModal.show {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .login-option {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+        }
+
+        .login-option:hover {
+            border-color: #111111;
+            background: #F9FAFB;
+        }
+
+        .login-option.active-mode {
+            border-color: #111111;
+            box-shadow: 0 0 0 1px #111111;
+            background: #F9FAFB;
+        }
+
+        .option-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: #E5E7EB;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .option-text h4 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .option-text p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="logo-mark"></div>
+            Xeck
+        </div>
+        
+        <nav class="nav-menu">
+            <a href="#" class="nav-item active" id="btnNavOverview" onclick="switchTab('overview')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+                <span data-i18n="nav_overview">Overview</span>
+            </a>
+            <a href="#" class="nav-item" id="btnNavContracts" onclick="switchTab('contracts')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <span data-i18n="nav_contracts">Contracts</span>
+            </a>
+            <a href="#" class="nav-item" id="btnNavAnalytics" onclick="switchTab('analytics')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                <span data-i18n="nav_analytics">Analytics</span>
+            </a>
+            <a href="#" class="nav-item" id="btnNavSettings" onclick="switchTab('settings')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                <span data-i18n="nav_settings">Settings</span>
+            </a>
+        </nav>
+
+        <div class="user-profile" onclick="openLoginModal()">
+            <div class="avatar" id="profileAvatar">U</div>
+            <div class="user-info">
+                <span class="user-name" id="profileName">Guest User</span>
+                <span class="user-email" id="profileEmail">Local Storage Only</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <!-- OVERVIEW VIEW -->
+        <div class="content-inner view-section active" id="view-overview">
+            <header class="header">
+                <div class="greeting">
+                    <h1 class="text-heading-lg"><span data-i18n="greeting">Hello</span>, <span id="headerName">Guest</span></h1>
+                    <p data-i18n="greeting_sub">Here is the status of your contracts.</p>
+                </div>
+                <button class="btn-primary" onclick="openAddModal()">
+                    <span data-i18n="btn_add_contract">Add New Contract</span>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+            </header>
+
+            <section class="metrics-grid">
+                <div class="metric-card solid">
+                    <div class="metric-header">
+                        <span class="text-micro-caps" data-i18n="metric_expenses">Total Monthly Expenses</span>
+                    </div>
+                    <div class="text-value-xl" id="totalExpenses">€0.00</div>
+                </div>
+                 <div class="metric-card outlined">
+                    <div class="metric-header">
+                        <span class="text-micro-caps" data-i18n="metric_upcoming">Upcoming Renewals (< 30 days)</span>
+                    </div>
+                    <div class="text-value-xl color-warning" id="upcomingRenewals">00</div>
+                </div>
+            </section>
+
+            <section class="contracts-section">
+                <div class="section-header">
+                    <h2 class="text-heading-md" data-i18n="title_active_contracts">Active Contracts</h2>
+                </div>
+                
+                <div class="list-container" id="contractList">
+                    <!-- Dynamic contracts will be inserted here -->
+                </div>
+            </section>
+        </div>
+
+        <!-- SETTINGS VIEW -->
+        <div class="content-inner view-section" id="view-settings">
+            <header class="header">
+                <div class="greeting">
+                    <h1 class="text-heading-lg" data-i18n="nav_settings">Settings</h1>
+                    <p data-i18n="settings_sub">Manage your preferences and data backups.</p>
+                </div>
+            </header>
+
+            <div class="settings-card">
+                <div class="settings-card-title" data-i18n="set_profile_title">Profile Settings</div>
+                <div style="display:flex;flex-direction:column;gap:1rem;max-width:400px;margin-top:1rem;">
+                    <div class="form-group">
+                        <label data-i18n="lbl_nickname">Nickname</label>
+                        <input type="text" id="profileNameInput" class="form-control" placeholder="e.g. Alex" oninput="document.getElementById('profileSaveMsg').style.display='none'">
+                    </div>
+                    <button class="btn-primary" onclick="saveProfileSettings()" style="width:fit-content;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span data-i18n="btn_save_settings">Save Settings</span>
+                    </button>
+                    <p id="profileSaveMsg" style="font-size:0.75rem;color:#10B981;display:none;font-weight:600;" data-i18n="msg_saved">✓ Saved successfully</p>
+                </div>
+            </div>
+
+            <div class="settings-card" id="devSettingsCard" style="display:none; border:1px dashed var(--border-color); opacity:0.8;">
+                <div class="settings-card-title">👨‍💻 Developer: Google Auth (Desktop)</div>
+                <div style="display:flex;flex-direction:column;gap:1rem;max-width:400px;margin-top:1rem;">
+                    <div class="form-group">
+                        <label>Google Client ID</label>
+                        <input type="text" id="googleClientIdInput" class="form-control" placeholder="x-xxx.apps.googleusercontent.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Google Client Secret</label>
+                        <input type="password" id="googleClientSecretInput" class="form-control" placeholder="GOCSPX-...">
+                    </div>
+                    <button class="btn-primary" onclick="saveGoogleAuthSettings()" style="width:fit-content;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span>Save Auth Settings</span>
+                    </button>
+                    <p id="googleAuthSaveMsg" style="font-size:0.75rem;color:#10B981;display:none;font-weight:600;">✓ Saved successfully</p>
+                </div>
+            </div>
+
+            <button class="btn-secondary" onclick="toggleDevMode()" style="margin-bottom:2rem; font-size:0.7rem; opacity:0.5; width:fit-content; border:none; background:transparent;">
+                Toggle Developer Settings
+            </button>
+
+
+            <div class="settings-card">
+                <div class="settings-card-title" data-i18n="set_language">Language / Idioma / 语言</div>
+                <div class="form-group" style="max-width: 300px; margin-top: 1rem;">
+                    <select id="languageSelect" class="form-control" onchange="changeLanguage(this.value)">
+                        <option value="en">English (EN)</option>
+                        <option value="es">Español (ES)</option>
+                        <option value="zh">中文 (ZH)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-card-title">Account / Storage</div>
+                <div style="margin-top: 1rem;">
+                    <button class="btn-secondary" onclick="logout()" style="border-color: #EF4444; color: #EF4444; width: fit-content;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" style="margin-right: 4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        <span data-i18n="btn_logout">Logout / Switch Storage</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <div class="settings-card-title" data-i18n="set_data">Data Management</div>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button class="btn-primary" onclick="window.location.href='/api/export'" style="background-color: #10B981;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        <span data-i18n="btn_export">Export Backup (ZIP)</span>
+                    </button>
+
+                    <label class="btn-secondary" style="display: inline-flex; align-items: center; gap: 8px; flex: none; cursor: pointer;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        <span data-i18n="btn_import">Import Backup</span>
+                        <input type="file" id="importFile" accept=".zip" style="display: none;" onchange="importBackup(this.files[0])">
+                    </label>
+                </div>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 12px;" data-i18n="data_warning">Warning: Importing a backup will overwrite your current database and files.</p>
+            </div>
+
+            <!-- AI ASSISTANT CARD -->
+            <div class="settings-card">
+                <div class="settings-card-title" data-i18n="set_ai_title">AI Assistant</div>
+                <p style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:1rem;" data-i18n="set_ai_sub">Connect an AI model to auto-fill contracts from uploaded PDFs.</p>
+                <div style="display:flex;flex-direction:column;gap:1rem;max-width:400px;">
+                    <div class="form-group">
+                        <label style="font-weight:600;font-size:0.75rem;color:var(--text-secondary);" data-i18n="lbl_ai_key">API Key</label>
+                        <input type="password" id="aiApiKeyInput" class="form-control" placeholder="sk-..., nvapi-..., AIza..." autocomplete="off" oninput="detectAiProvider()">
+                    </div>
+                    <div class="form-group">
+                        <label style="font-weight:600;font-size:0.75rem;color:var(--text-secondary);" data-i18n="lbl_ai_provider">AI Provider</label>
+                        <select id="aiProviderSelect" class="form-control" disabled style="background-color: var(--bg-hover); opacity: 0.8; cursor: not-allowed;">
+                            <option value="" data-i18n="opt_enter_key_first">— Enter API Key first —</option>
+                            <option value="openai">OpenAI</option>
+                            <option value="gemini">Google Gemini</option>
+                            <option value="claude">Anthropic Claude</option>
+                            <option value="nvidia">NVIDIA</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="aiModelGroup" style="display:none;">
+                        <label style="font-weight:600;font-size:0.75rem;color:var(--text-secondary);" data-i18n="lbl_ai_model">AI Model</label>
+                        <select id="aiModelSelect" class="form-control">
+                        </select>
+                    </div>
+                    <button class="btn-primary" onclick="saveAiSettings()" style="width:fit-content;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                        <span data-i18n="btn_save_settings">Save Settings</span>
+                    </button>
+                    <p id="aiSaveMsg" style="font-size:0.75rem;color:#10B981;display:none;font-weight:600;" data-i18n="msg_saved">✓ Saved successfully</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTRACTS VIEW -->
+        <div class="content-inner view-section" id="view-contracts">
+            <header class="header">
+                <div class="greeting">
+                    <h1 class="text-heading-lg" data-i18n="title_all_contracts">All Contracts</h1>
+                    <p data-i18n="sub_all_contracts">Full list of your registered contracts.</p>
+                </div>
+                <button class="btn-primary" onclick="openAddModal()">
+                    <span data-i18n="btn_add_contract">Add New Contract</span>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+            </header>
+            <div class="list-container" id="contractListContracts"></div>
+        </div>
+
+        <!-- ANALYTICS VIEW -->
+        <div class="content-inner view-section" id="view-analytics">
+            <header class="header">
+                <div class="greeting">
+                    <h1 class="text-heading-lg" data-i18n="nav_analytics">Analytics</h1>
+                    <p data-i18n="sub_analytics">Spending breakdown and renewal timeline.</p>
+                </div>
+            </header>
+            <div id="analyticsContent" style="display:flex; flex-direction:column; gap:1.5rem;"></div>
+        </div>
+    </main>
+
+    <!-- Overlay Global -->
+    <div class="overlay" id="globalOverlay" onclick="closeAllModals()"></div>
+
+    <!-- Detail Slide-over -->
+    <aside class="slide-over" id="detailModal">
+        <div class="slide-header">
+            <span class="text-micro-caps" data-i18n="tl_contract_details">Contract Details</span>
+            <button class="close-btn" onclick="closeAllModals()" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="slide-content" id="detailContent" style="gap:1.5rem;overflow-y:auto;">
+            <!-- Filled by JS -->
+        </div>
+    </aside>
+    
+    <!-- Login Modal -->
+    <div id="loginModal">
+        <h2 class="text-heading-md" style="margin-bottom: 0.5rem;" data-i18n="login_title">Choose your storage method</h2>
+        <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 1.5rem;" data-i18n="login_sub">Select how you want to save your contract data.</p>
+        
+        <div class="login-option" id="opt-local" onclick="selectLoginMode('local')">
+            <div class="option-icon">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01"></path></svg>
+            </div>
+            <div class="option-text">
+                <h4 data-i18n="login_local_title">Local Storage Only</h4>
+                <p data-i18n="login_local_desc">No login required. 100% private. Data stays on this device.</p>
+            </div>
+        </div>
+
+        <div class="login-option" id="opt-google" onclick="selectLoginMode('google')">
+            <div class="option-icon" style="background-color: #FEF3C7; color: #D97706;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path></svg>
+            </div>
+            <div class="option-text">
+                <h4 data-i18n="login_google_title">Google Drive Sync</h4>
+                <p data-i18n="login_google_desc">Login to sync across devices (Requires Auth configuration).</p>
+            </div>
+        </div>
+        
+        <div style="text-align: right; margin-top: 1rem;">
+             <button class="btn-secondary" onclick="closeAllModals()" style="padding: 8px 16px; font-size: 0.75rem;" data-i18n="btn_cancel">Close</button>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div id="deleteConfirmModal">
+        <h2 class="text-heading-md" style="margin-bottom: 0.5rem;" data-i18n="delete_confirm_title">Delete Contract?</h2>
+        <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 2rem;" data-i18n="delete_confirm_msg">WARNING: This will also permanently delete the contract folder and all attached PDF/JPG files.</p>
+        
+        <div style="text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+             <button class="btn-secondary" onclick="closeAllModals()" style="padding: 10px 20px;" data-i18n="btn_cancel">Cancel</button>
+             <button class="btn-primary" style="padding: 10px 20px; background-color: #DC2626;" id="btnConfirmDelete" data-i18n="btn_confirm">Confirm</button>
+        </div>
+    </div>
+
+    <!-- Add Contract Panel -->
+    <aside class="slide-over" id="addModal">
+        <div class="slide-header">
+            <span class="text-micro-caps" data-i18n="slide_new_title">New Contract</span>
+            <button class="close-btn" onclick="closeAllModals()" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <form class="slide-content" id="contractForm" onsubmit="submitContract(event)">
+            <div class="form-group">
+                <label data-i18n="lbl_title">Title</label>
+                <input type="text" class="form-control" name="title" required placeholder="e.g. Movistar Fiber 1GB">
+            </div>
+            
+            <div class="form-group" style="margin-top: 6px;">
+                <label data-i18n="lbl_cost">Monthly Cost (€)</label>
+                <input type="number" step="0.01" class="form-control" name="monthly_cost" required placeholder="45.00">
+            </div>
+            
+            <div class="form-group" style="margin-top: 6px;">
+                <label data-i18n="lbl_category">Category</label>
+                <select class="form-control" name="category">
+                    <option value="Utilities" data-i18n="cat_utilities">Utilities</option>
+                    <option value="Insurance" data-i18n="cat_insurance">Insurance</option>
+                    <option value="Mobile" data-i18n="cat_mobile">Mobile</option>
+                    <option value="Subscription" data-i18n="cat_subscription">Subscription</option>
+                    <option value="Internet" data-i18n="cat_internet">Internet</option>
+                    <option value="Other" data-i18n="cat_other">Other</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top: 6px;">
+                <label data-i18n="lbl_billing">Billing Cycle</label>
+                <select class="form-control" name="billing_cycle">
+                    <option value="Monthly" data-i18n="bill_monthly">Monthly</option>
+                    <option value="Annual" data-i18n="bill_annual">Annual</option>
+                    <option value="Quarterly" data-i18n="bill_quarterly">Quarterly</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top: 6px;">
+                <label data-i18n="lbl_start_date">Start Date</label>
+                <input type="text" class="form-control date-input" name="start_date" placeholder="DD/MM/YYYY">
+            </div>
+            <div class="form-group" style="margin-top: 6px;">
+                <label><span data-i18n="lbl_contract_end">Contract End Date</span> <span style="color:var(--text-tertiary);font-weight:400;" data-i18n="lbl_no_fixed">(leave blank if no fixed end)</span></label>
+                <input type="text" class="form-control date-input" name="contract_end_date" placeholder="DD/MM/YYYY">
+            </div>
+            <div class="form-group" style="margin-top: 6px;">
+                <label><span data-i18n="lbl_perm_end">Permanencia End Date</span> <span style="color:var(--text-tertiary);font-weight:400;" data-i18n="lbl_lock_in">(optional – lock-in period)</span></label>
+                <input type="text" class="form-control date-input" name="permanencia_end_date" placeholder="DD/MM/YYYY">
+            </div>
+            
+            <div class="form-group" style="margin-top: 1rem;">
+                <label data-i18n="lbl_doc">Contract Document</label>
+                <input type="file" id="fileInput" name="document" style="display:none;" onchange="updateFileName()">
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    </div>
+                    <div class="upload-text">
+                        <p id="fileName" data-i18n="lbl_doc_up">Upload Contract Document</p>
+                        <span data-i18n="lbl_doc_sub">PDF, JPG up to 10MB</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top:6px;">
+                <label><span data-i18n="lbl_notes">Notes</span> <span style="color:var(--text-tertiary);font-weight:400;" data-i18n="lbl_optional">(optional)</span></label>
+                <textarea class="form-control" name="notes" rows="2" placeholder="..."></textarea>
+            </div>
+
+            <!-- AI Analyze Button (visible after file is selected) -->
+            <button type="button" id="aiAnalyzeBtn" class="ai-btn" onclick="analyzeWithAI()">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span data-i18n="btn_analyze_ai">✨ Analyze with AI</span>
+            </button>
+
+            <div class="actions">
+                <button type="button" class="btn-secondary" onclick="closeAllModals()" data-i18n="btn_cancel">Cancel</button>
+                <button type="submit" class="btn-primary" style="flex:2; justify-content: center;" data-i18n="btn_save">Save Contract</button>
+            </div>
+        </form>
+    </aside>
+
+    <!-- App Logic Scripts -->
+    <script>
+        /* I18N DICTIONARY */
+        const translations = {
+            en: {
+                nav_overview: "Overview", nav_contracts: "Contracts", nav_analytics: "Analytics", nav_settings: "Settings",
+                greeting: "Hello", greeting_sub: "Here is the status of your contracts.",
+                settings_sub: "Manage your preferences and data backups.", btn_add_contract: "Add New Contract",
+                metric_expenses: "Total Monthly Expenses", metric_upcoming: "Upcoming Renewals (< 30 days)", title_active_contracts: "Active Contracts",
+                set_language: "Language", set_data: "Data Management", btn_export: "Export Backup (ZIP)", btn_import: "Import Backup",
+                data_warning: "Warning: Importing a backup will overwrite your current database and files.",
+                login_title: "Choose your storage method", login_sub: "Select how you want to save your contract data.",
+                login_local_title: "Local Storage Only", login_local_desc: "No login required. 100% private. Data stays on this device.",
+                login_google_title: "Google Drive Sync", login_google_desc: "Login to sync across devices (Requires Auth configuration).",
+                btn_cancel: "Cancel", btn_save: "Save Contract", slide_new_title: "New Contract",
+                lbl_title: "Title", lbl_cost: "Monthly Cost (€)", lbl_doc: "Contract Document",
+                lbl_doc_up: "Upload Contract Document", lbl_doc_sub: "PDF, JPG up to 10MB", doc_link: "Doc", no_date: "No Deadline",
+                days_rem: "days remaining", perm_ended: "Ended", status_active: "Active", no_perm: "No lock-in",
+                msg_required: "Please fill out this field.",
+                lbl_category: "Category", lbl_billing: "Billing Cycle", lbl_start_date: "Start Date",
+                lbl_contract_end: "Contract End Date", lbl_perm_end: "Permanencia End Date", lbl_notes: "Notes",
+                lbl_no_fixed: "(leave blank if no fixed end)", lbl_lock_in: "(optional – lock-in period)", lbl_optional: "(optional)",
+                cat_utilities: "Utilities", cat_insurance: "Insurance", cat_mobile: "Mobile",
+                cat_subscription: "Subscription", cat_internet: "Internet", cat_other: "Other",
+                bill_monthly: "Monthly", bill_annual: "Annual", bill_quarterly: "Quarterly",
+                set_ai_title: "AI Assistant", set_ai_sub: "Connect an AI model to auto-fill contracts from uploaded PDFs.",
+                lbl_ai_provider: "AI Provider", opt_select_provider: "— Select provider —", lbl_ai_key: "API Key",
+                lbl_ai_model: "AI Model", opt_enter_key_first: "— Enter API Key first —",
+                btn_save_ai: "Save AI Settings", btn_analyze_ai: "✨ Analyze with AI",
+                title_all_contracts: "All Contracts", sub_all_contracts: "Full list of your registered contracts.",
+                sub_analytics: "Spending breakdown and renewal timeline.",
+                tl_contract_details: "Contract Details", tl_monthly_cost: "Monthly Cost", tl_billing_cycle: "Billing Cycle", 
+                tl_start_date: "Start Date", tl_contract_end_date: "Contract End Date", tl_contract_end: "Contract End",
+                tl_documents: "Documents", tl_no_doc: "No document attached.", tl_attach_doc: "Attach Document", 
+                tl_delete_contract: "Delete Contract", tl_rolling: "Rolling", tl_no_fixed_rolling: "No fixed end (rolling)",
+                tl_perm_ending_soon: "⚠ Permanencia Ending Soon", tl_lock_in_ends_in: "Lock-in period ends in", 
+                tl_switch_penalty: " After this you can switch without penalty.", tl_perm_end_detail: "Permanencia End", 
+                tl_permanencia: "Permanencia", tl_ended_check: "Ended ✓", tl_notes_detail: "Notes", tl_renews: "Renews",
+                tl_spending_cat: "Spending by Category", tl_upcoming_90_days: "Upcoming Renewals (next 90 days)", 
+                tl_no_data: "No data yet.", tl_no_upcoming_renewals: "No upcoming renewals in the next 90 days.",
+                sync_status: "Syncing...", sync_local: "Local Storage Only", sync_cloud: "Connected to Drive",
+                sync_last: "Last sync", sync_failed: "Sync failed",
+                delete_confirm_title: "Delete Contract?",
+                delete_confirm_msg: "WARNING: This will also permanently delete the contract folder and all attached PDF/JPG files.",
+                btn_confirm: "Confirm Delete",
+                set_profile_title: "Profile Settings", lbl_nickname: "Nickname", btn_save_settings: "Save Settings",
+                msg_saved: "Saved successfully", msg_fetching_models: "Fetching models...", msg_no_models: "No models found",
+                msg_fetch_failed: "Discovery failed, save anyway", tl_historical_trend: "Historical Spending Trend (Last 12 Months)",
+                btn_generate_advice: "✨ Get Professional AI Advice", msg_ai_consulting: "Our AI specialist is reviewing your portfolio...",
+                tl_ai_insights: "Professional AI Insights", btn_logout: "Logout / Switch Storage"
+            },
+            es: {
+                nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
+                greeting: "Hola", greeting_sub: "Aquí está el estado de tus contratos.",
+                settings_sub: "Administra tus preferencias y copias de seguridad.", btn_add_contract: "Añadir Nuevo Contrato",
+                metric_expenses: "Gastos Mensuales Totales", metric_upcoming: "Próximas Renov. (< 30 días)", title_active_contracts: "Contratos Activos",
+                set_language: "Idioma", set_data: "Gestión de Datos", btn_export: "Exportar Copia (ZIP)", btn_import: "Importar Copia",
+                data_warning: "Aviso: Importar un zip sobrescribirá tu base de datos y archivos locales.",
+                login_title: "Elige tu método de guardado", login_sub: "Selecciona cómo quieres guardar los datos de tus contratos.",
+                login_local_title: "Solo Almacenamiento Local", login_local_desc: "Sin inicios de sesión. 100% privado. Todo en este dispositivo.",
+                login_google_title: "Sincronización con Google Drive", login_google_desc: "Inicia sesión para sincronizar (Requiere OAuth).",
+                btn_cancel: "Cancelar", btn_save: "Guardar Contrato", slide_new_title: "Nuevo Contrato",
+                lbl_title: "Título", lbl_cost: "Coste Mensual (€)", lbl_doc: "Documento Contrato",
+                lbl_doc_up: "Sube un Documento", lbl_doc_sub: "PDF, JPG hasta 10MB", doc_link: "Doc", no_date: "Sin Fecha",
+                days_rem: "días restantes", perm_ended: "Terminada", status_active: "Activo", no_perm: "Sin permanencia",
+                msg_required: "Por favor, rellene este campo.",
+                lbl_category: "Categoría", lbl_billing: "Ciclo de Facturación", lbl_start_date: "Fecha de Inicio",
+                lbl_contract_end: "Fin del Contrato", lbl_perm_end: "Fin de Permanencia", lbl_notes: "Notas",
+                lbl_no_fixed: "(dejar en blanco si no hay fin)", lbl_lock_in: "(opcional)", lbl_optional: "(opcional)",
+                cat_utilities: "Servicios", cat_insurance: "Seguros", cat_mobile: "Móvil",
+                cat_subscription: "Suscripción", cat_internet: "Internet", cat_other: "Otro",
+                bill_monthly: "Mensual", bill_annual: "Anual", bill_quarterly: "Trimestral",
+                set_ai_title: "Asistente AI", set_ai_sub: "Conecta un modelo de IA para autorrellenar contratos desde PDFs.",
+                lbl_ai_provider: "Proveedor de IA", opt_select_provider: "— Seleccionar proveedor —", lbl_ai_key: "Clave API",
+                lbl_ai_model: "Modelo de IA", opt_enter_key_first: "— Introduce Clave API primero —",
+                btn_save_ai: "Guardar Ajustes IA", btn_analyze_ai: "✨ Analizar con IA",
+                title_all_contracts: "Todos los Contratos", sub_all_contracts: "Lista completa de tus contratos.",
+                sub_analytics: "Desglose de gastos y plazos de renovación.",
+                tl_contract_details: "Detalles del Contrato", tl_monthly_cost: "Coste Mensual", tl_billing_cycle: "Ciclo de Facturación", 
+                tl_start_date: "Fecha de Inicio", tl_contract_end_date: "Fin del Contrato", tl_contract_end: "Fin del Contrato",
+                tl_documents: "Documentos", tl_no_doc: "Ningún documento adjunto.", tl_attach_doc: "Adjuntar Documento", 
+                tl_delete_contract: "Eliminar Contrato", tl_rolling: "Continuo", tl_no_fixed_rolling: "Sin fecha final (continuo)",
+                tl_perm_ending_soon: "⚠ Permanencia Termina Pronto", tl_lock_in_ends_in: "La permanencia termina en", 
+                tl_switch_penalty: " Después puedes cambiarte sin penalización.", tl_perm_end_detail: "Fin Permanencia", 
+                tl_permanencia: "Permanencia", tl_ended_check: "Terminada ✓", tl_notes_detail: "Notas", tl_renews: "Renueva",
+                tl_spending_cat: "Gastos por Categoría", tl_upcoming_90_days: "Próximas Renov. (próximos 90 días)", 
+                tl_no_data: "Sin datos.", tl_no_upcoming_renewals: "No hay renovaciones en los próximos 90 días.",
+                delete_confirm_title: "¿Eliminar Contrato?",
+                delete_confirm_msg: "ATENCIÓN: Esta acción también eliminará permanentemente la carpeta del contrato y todos los archivos PDF/JPG adjuntos.",
+                btn_confirm: "Confirmar",
+                set_profile_title: "Ajustes de Perfil", lbl_nickname: "Apodo / Nombre", btn_save_settings: "Guardar Ajustes",
+                msg_saved: "Guardado correctamente", msg_fetching_models: "Obteniendo modelos...", msg_no_models: "No se encontraron modelos",
+                msg_fetch_failed: "Error al descubrir", tl_historical_trend: "Tendencia de Gasto Histórico (Últimos 12 meses)",
+                btn_generate_advice: "✨ Obtener Asesoría Profesional IA", msg_ai_consulting: "Nuestro especialista en IA está revisando su cartera...",
+                tl_ai_insights: "Perspectivas Profesionales de IA", btn_logout: "Cerrar Sesión / Cambiar Cuenta",
+                sync_status: "Sincronizando...", sync_local: "Solo Almacenamiento Local", sync_cloud: "Conectado a Drive",
+                sync_last: "Última sinc.", sync_failed: "Sinc. fallida"
+            },
+            zh: {
+                nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
+                greeting: "您好", greeting_sub: "这是您目前的合同状态。",
+                settings_sub: "管理您的偏好设置和数据备份。", btn_add_contract: "添加新合同",
+                metric_expenses: "月总支出", metric_upcoming: "即将到期 (30天内)", title_active_contracts: "正生效合同",
+                set_language: "语言选择", set_data: "数据管理", btn_export: "导出备份 (ZIP)", btn_import: "导入备份",
+                data_warning: "警告：导入备份文件将会覆盖您当前的本地数据库与全部文件。",
+                login_title: "选择登录/存储方式", login_sub: "请选择您希望如何存储合同数据。",
+                login_local_title: "仅本地存储 (免登录)", login_local_desc: "无需登录。100%私密。数据仅保留在当前设备。",
+                login_google_title: "Google Drive 云端同步", login_google_desc: "通过谷歌账号多端同步 (需要后端 Auth 配置支持)。",
+                btn_cancel: "取消", btn_save: "保存合同", slide_new_title: "新建合同",
+                lbl_title: "合同名称", lbl_cost: "月度费用 (€)", lbl_doc: "合同附件",
+                lbl_doc_up: "点击上传合同附件", lbl_doc_sub: "支持 PDF, JPG (最大10MB)", doc_link: "查看", no_date: "未设期限",
+                days_rem: "天后到期", perm_ended: "已结束", status_active: "生效中", no_perm: "无锁定期",
+                msg_required: "请填写此字段。",
+                lbl_category: "分类", lbl_billing: "计费周期", lbl_start_date: "开始日期",
+                lbl_contract_end: "合同结束日期", lbl_perm_end: "锁定期结束日期", lbl_notes: "备注",
+                lbl_no_fixed: "(如果没有固定结束日期请留空)", lbl_lock_in: "(选填项 - 锁定期限)", lbl_optional: "(选填)",
+                cat_utilities: "水电煤", cat_insurance: "保险", cat_mobile: "通信",
+                cat_subscription: "订阅", cat_internet: "宽带", cat_other: "其他",
+                bill_monthly: "一月一付", bill_annual: "一年一付", bill_quarterly: "一季一付",
+                set_ai_title: "AI 助手", set_ai_sub: "连接 AI 模型以从上传的 PDF 自动填充合同信息。",
+                lbl_ai_provider: "AI 提供商", opt_select_provider: "— 选择提供商 —", lbl_ai_key: "API 密钥",
+                lbl_ai_model: "AI 模型", opt_enter_key_first: "— 请先输入 API 密钥 —",
+                btn_save_ai: "保存 AI 设置", btn_analyze_ai: "✨ 使用 AI 分析",
+                title_all_contracts: "所有合同", sub_all_contracts: "您登记的合同完整列表。",
+                sub_analytics: "按月支出细分与续约时间表。",
+                tl_contract_details: "合同详情", tl_monthly_cost: "月度费用", tl_billing_cycle: "计费周期", 
+                tl_start_date: "开始日期", tl_contract_end_date: "合同结束日期", tl_contract_end: "合同结束",
+                tl_documents: "附件", tl_no_doc: "未上传任何文件。", tl_attach_doc: "上传附件", 
+                tl_delete_contract: "删除合同", tl_rolling: "无固定", tl_no_fixed_rolling: "未设期限 (自动延续)",
+                tl_perm_ending_soon: "⚠ 锁定期即将结束", tl_lock_in_ends_in: "锁定期还剩", 
+                tl_switch_penalty: "。之后您可以无违约金更换套餐。", tl_perm_end_detail: "锁定期满", 
+                tl_permanencia: "锁定期", tl_ended_check: "已结束 ✓", tl_notes_detail: "备注", tl_renews: "续约日",
+                tl_no_contracts: "暂无合同。点击 “添加新合同” 开始使用。", 
+                tl_spending_cat: "按类别支出占比", tl_upcoming_90_days: "即将到期 (未来90天)", 
+                tl_no_data: "暂无数据。", tl_no_upcoming_renewals: "未来 90 天内没有即将到期的合同。",
+                delete_confirm_title: "确定要彻底删除此合同吗？",
+                delete_confirm_msg: "注意：此操作也会永久删除该合同对应的专属文件夹以及所有上传的附加文件。",
+                btn_confirm: "确定删除",
+                set_profile_title: "个人资料设置", lbl_nickname: "昵称", btn_save_settings: "保存设定",
+                msg_saved: "保存成功", msg_fetching_models: "正在获取模型列表...", msg_no_models: "未找到可用模型",
+                msg_fetch_failed: "获取失败，请手动保存", tl_historical_trend: "历史支出趋势 (过去12个月)",
+                btn_generate_advice: "✨ 获取 AI 专业咨询建议", msg_ai_consulting: "我们的 AI 专家正在审阅您的合同组合...",
+                tl_ai_insights: "AI 专业洞察",
+                sync_status: "同步中...", sync_local: "数据仅存本地", sync_cloud: "已连接网盘",
+                sync_last: "上次同步", sync_failed: "同步失败"
+            }
+        };
+
+        function parseDDMMYYYY(str) {
+            if (!str || !str.trim()) return null; // null = no date, avoids Invalid Date
+            if (str.split('/').length === 3) {
+                const [d, m, y] = str.split('/');
+                const dt = new Date(`${y}-${m}-${d}T00:00:00`);
+                return isNaN(dt.getTime()) ? null : dt;
+            }
+            const dt = new Date(str + 'T00:00:00'); // fallback for legacy YYYY-MM-DD
+            return isNaN(dt.getTime()) ? null : dt;
+        }
+
+        let currentLang = 'en';
+        let allContracts = [];
+        let datePickers = [];
+
+        function initDatePickers(lang) {
+            try {
+                if (datePickers && datePickers.length) {
+                    datePickers.forEach(p => { if (p && typeof p.destroy === 'function') p.destroy(); });
+                } else if (datePickers && typeof datePickers.destroy === 'function') {
+                    datePickers.destroy();
+                }
+                const localeMap = { en: 'default', es: 'es', zh: 'zh' };
+                datePickers = flatpickr(".date-input", {
+                    dateFormat: "d/m/Y",
+                    locale: localeMap[lang] || 'default',
+                    allowInput: true
+                });
+            } catch(e) { console.error("Flatpickr init error:", e); }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const savedLang = localStorage.getItem('xeck_lang') || 'en';
+            document.getElementById('languageSelect').value = savedLang;
+            
+            // Force initial sync to backend to ensure folder names stay consistent
+            // Even if savedLang is the same as the client's current variable, 
+            // the backend might be out of sync.
+            await changeLanguage(savedLang, true); 
+            
+            document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeAllModals(); });
+        });
+
+        function switchTab(viewId) {
+            try {
+                document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+                document.getElementById('view-' + viewId).classList.add('active');
+                document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+                const id = 'btnNav' + viewId.charAt(0).toUpperCase() + viewId.slice(1);
+                const el = document.getElementById(id);
+                if (el) el.classList.add('active');
+                if (viewId === 'analytics') renderAnalytics();
+                if (viewId === 'settings') loadAiSettings();
+            } catch(e) { console.error("Tab switch error:", e); }
+        }
+
+        async function changeLanguage(langCode, forceSync = false) {
+            try {
+                const oldLang = currentLang;
+                currentLang = langCode;
+                localStorage.setItem('xeck_lang', langCode);
+                const localMap = { en: 'en', es: 'es', zh: 'zh' };
+                document.documentElement.lang = localMap[langCode] || langCode;
+
+                if (translations[langCode]) {
+                    document.querySelectorAll('[data-i18n]').forEach(el => {
+                        const key = el.getAttribute('data-i18n');
+                        if (translations[langCode][key]) el.innerText = translations[langCode][key];
+                    });
+                }
+
+                // Trigger backend migration if language actually changed OR forced on startup
+                if (oldLang !== langCode || forceSync) {
+                    console.log(`Syncing/Migrating language state to: ${langCode}...`);
+                    await fetch('/api/migrate-language', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fromLang: oldLang, toLang: langCode })
+                    });
+                }
+
+            } catch(e) { console.error("Language translation error:", e); }
+            finally {
+                initDatePickers(langCode);
+                applyUserIdentity();
+                loadContracts();
+            }
+        }
+
+        async function selectLoginMode(mode) {
+            localStorage.setItem('xeck_login_mode', mode);
+            // Also persist to backend settings
+            try {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ xeck_login_mode: mode })
+                });
+            } catch(e) {}
+            
+            closeAllModals();
+            applyUserIdentity();
+        }
+
+        async function applyUserIdentity() {
+            const nameEl = document.getElementById('profileName');
+            const emailEl = document.getElementById('profileEmail');
+            const avatarEl = document.getElementById('profileAvatar');
+            const headNameEl = document.getElementById('headerName');
+            const i18n = translations[currentLang];
+
+            document.getElementById('opt-local').classList.remove('active-mode');
+            document.getElementById('opt-google').classList.remove('active-mode');
+
+            let hasAuth = false;
+            let backendMode = null;
+
+            // Load saved settings
+            try {
+                const res = await fetch('/api/settings');
+                const cfg = await res.json();
+                hasAuth = !!cfg.has_google_auth;
+                backendMode = cfg.xeck_login_mode;
+
+                if (cfg.profile_name) {
+                    nameEl.innerText = cfg.profile_name;
+                    headNameEl.innerText = cfg.profile_name;
+                    if(document.getElementById('profileNameInput')) document.getElementById('profileNameInput').value = cfg.profile_name;
+                } else {
+                    const n = currentLang === 'zh' ? '本地访客' : (currentLang === 'es' ? 'Invitado' : 'Guest');
+                    nameEl.innerText = n; headNameEl.innerText = n;
+                }
+
+                if (cfg.google_client_id && document.getElementById('googleClientIdInput'))
+                    document.getElementById('googleClientIdInput').value = cfg.google_client_id;
+                if (cfg.google_client_secret && document.getElementById('googleClientSecretInput'))
+                    document.getElementById('googleClientSecretInput').value = cfg.google_client_secret;
+
+            } catch(e) { console.error("Identity load error:", e); }
+
+            // Determine effective mode: localStorage > backend > null
+            let mode = localStorage.getItem('xeck_login_mode') || backendMode;
+
+            // If we have Google Auth but no mode is set, DEFAULT to google
+            if (!mode && hasAuth) {
+                mode = 'google';
+                localStorage.setItem('xeck_login_mode', 'google');
+            }
+
+            if (mode === 'google') {
+                document.getElementById('opt-google').classList.add('active-mode');
+                avatarEl.innerText = 'G';
+                avatarEl.style.backgroundColor = '#4285F4';
+
+                if (hasAuth) {
+                    startDriveSync();
+                } else {
+                    emailEl.innerHTML = `<span style="color:var(--text-secondary);">${i18n.sync_status || 'Waiting...'}</span> <a href="#" onclick="openLoginModal()" style="color:#4285F4;text-decoration:underline;font-size:0.65rem;margin-left:4px;">Login</a>`;
+                }
+            } else {
+                document.getElementById('opt-local').classList.add('active-mode');
+                emailEl.innerText = i18n.sync_local;
+                avatarEl.innerText = 'L'; avatarEl.style.backgroundColor = '#000000';
+            }
+            if (!localStorage.getItem('xeck_login_mode')) openLoginModal();
+        }
+
+        window.addEventListener('focus', () => {
+            // applyUserIdentity manages the mode display
+        });
+
+        async function startDriveSync() {
+            const emailEl = document.getElementById('profileEmail');
+            const i18n = translations[currentLang];
+            try {
+                emailEl.innerText = i18n.sync_status || 'Syncing...';
+                emailEl.style.color = 'var(--text-secondary)';
+
+                const res = await fetch('/api/sync', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    emailEl.innerText = i18n.sync_cloud || 'Cloud';
+                    emailEl.style.color = '#10B981';
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            } catch (e) {
+                let errorMsg = e.message.includes('Not authenticated') ? 'Auth Required' : (e.message.substring(0, 15) + '..');
+                
+                // Specific handling for API_DISABLED
+                if (e.message.includes('API_DISABLED') || e.message.includes('Google Drive API') || e.message.includes('403')) {
+                     emailEl.innerHTML = `<span style="color:#EF4444;">API Disabled</span> <a href="https://console.developers.google.com/apis/library/drive.googleapis.com" target="_blank" style="color:#4285F4;text-decoration:underline;font-size:0.65rem;margin-left:4px;">Enable</a>`;
+                     return;
+                }
+
+                emailEl.innerHTML = `<span style="color:#EF4444;">${i18n.sync_failed || 'Error'}: ${errorMsg}</span> <a href="#" onclick="startDriveSync()" style="color:#4285F4;text-decoration:underline;font-size:0.65rem;margin-left:4px;">Sync</a>`;
+                console.error('Sync error:', e);
+            }
+        }
+
+        function toggleDevMode() {
+            const card = document.getElementById('devSettingsCard');
+            card.style.display = card.style.display === 'none' ? 'block' : 'none';
+        }
+
+        async function saveProfileSettings() {
+            const name = document.getElementById('profileNameInput').value.trim();
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile_name: name })
+                });
+                if (res.ok) {
+                    const msg = document.getElementById('profileSaveMsg');
+                    msg.style.display = 'block';
+                    applyUserIdentity();
+                }
+            } catch(e) { alert('Network error'); }
+        }
+
+        async function saveGoogleAuthSettings() {
+            const id = document.getElementById('googleClientIdInput').value.trim();
+            const secret = document.getElementById('googleClientSecretInput').value.trim();
+            try {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ google_client_id: id, google_client_secret: secret })
+                });
+                const msg = document.getElementById('googleAuthSaveMsg');
+                msg.style.display = 'block';
+                setTimeout(() => msg.style.display = 'none', 3000);
+            } catch(e) { alert('Failed to save'); }
+        }
+
+        async function selectLoginMode(mode) {
+            localStorage.setItem('xeck_login_mode', mode);
+            if (mode === 'google') {
+                try {
+                    const res = await fetch('/api/auth/google/url');
+                    const data = await res.json();
+                    if (data.url) {
+                        window.open(data.url, '_blank');
+                    } else {
+                        throw new Error(data.error);
+                    }
+                } catch(e) {
+                    alert('Google OAuth Error: ' + e.message);
+                    return;
+                }
+            }
+            closeAllModals();
+            await applyUserIdentity();
+        }
+
+        function logout() {
+            localStorage.removeItem('xeck_login_mode');
+            window.location.reload();
+        }
+
+        function openLoginModal() {
+            document.getElementById('globalOverlay').style.display = 'block';
+            document.getElementById('loginModal').style.display = 'block';
+            setTimeout(() => document.getElementById('loginModal').classList.add('show'), 10);
+        }
+
+        function openAddModal() {
+            document.getElementById('globalOverlay').style.display = 'block';
+            const modal = document.getElementById('addModal');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('show'), 10);
+        }
+
+        function openDetailPanel(id) {
+            const c = allContracts.find(x => x.id === id);
+            if (!c) return;
+            const i18n = translations[currentLang];
+            const today = new Date();
+
+            // --- Permanencia block ---
+            let permBlock = '';
+            if (c.permanencia_end_date) {
+                const pEnd = parseDDMMYYYY(c.permanencia_end_date);
+                const daysDiff = Math.ceil((pEnd - today) / 86400000);
+                const pDateStr = pEnd.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB', {day:'numeric',month:'short',year:'numeric'});
+                if (daysDiff > 0 && daysDiff <= 30) {
+                    permBlock = `<div class="warning-card">
+                        <div class="wc-title">${i18n.tl_perm_ending_soon}</div>
+                        <div class="wc-desc">${i18n.tl_lock_in_ends_in} <strong>${daysDiff} ${i18n.days_rem}</strong> (${pDateStr})${i18n.tl_switch_penalty}</div>
+                    </div>`;
+                } else if (daysDiff > 0) {
+                    permBlock = `<div class="detail-item"><span class="label">${i18n.tl_perm_end_detail}</span><span class="value">${pDateStr}</span></div>`;
+                } else {
+                    permBlock = `<div class="detail-item"><span class="label">${i18n.tl_permanencia}</span><span class="value" style="color:#065F46;">${i18n.tl_ended_check}</span></div>`;
+                }
+            } else {
+                permBlock = `<div class="detail-item"><span class="label">${i18n.tl_permanencia}</span><span class="value" style="color:#6B7280;">${i18n.no_perm}</span></div>`;
+            }
+
+            // --- Contract end date ---
+            let contractEndBlock = '';
+            if (c.contract_end_date) {
+                const cEnd = parseDDMMYYYY(c.contract_end_date);
+                const cDays = Math.ceil((cEnd - today) / 86400000);
+                const cDateStr = cEnd.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB', {day:'numeric',month:'short',year:'numeric'});
+                contractEndBlock = `<div class="detail-item"><span class="label">${i18n.tl_contract_end_date}</span><span class="value">${cDateStr}${cDays <= 30 && cDays > 0 ? ` <span style="color:#F97316;font-size:0.8rem;">(${cDays} ${(i18n.days_rem||'').split(' ')[0]})</span>` : ''}</span></div>`;
+            } else {
+                contractEndBlock = `<div class="detail-item"><span class="label">${i18n.tl_contract_end_date}</span><span class="value" style="color:#6B7280;">${i18n.tl_no_fixed_rolling}</span></div>`;
+            }
+
+            // --- Document block ---
+            let docBlock = c.file_path
+                ? `<div class="doc-item">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    <a href="/${c.file_path}" target="_blank">${c.file_path.split('/').pop()}</a>
+                  </div>`
+                : `<p style="font-size:0.8125rem;color:var(--text-secondary);">${i18n.tl_no_doc}</p>`;
+
+            const catStr = i18n['cat_' + (c.category || 'other').toLowerCase()] || c.category || 'Other';
+            const billStr = i18n['bill_' + (c.billing_cycle || 'monthly').toLowerCase()] || c.billing_cycle || 'Monthly';
+
+            document.getElementById('detailContent').innerHTML = `
+                <div style="display:flex;align-items:center;gap:1rem;">
+                    <div class="provider-icon" style="width:48px;height:48px;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    </div>
+                    <div>
+                        <h2 style="font-size:1.25rem;font-weight:800;letter-spacing:-0.02em;">${c.title}</h2>
+                        <span class="permanencia-badge">${catStr}</span>
+                    </div>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-item"><span class="label">${i18n.tl_monthly_cost}</span><span class="value">€${Number(c.monthly_cost).toFixed(2)}</span></div>
+                    <div class="detail-item"><span class="label">${i18n.tl_billing_cycle}</span><span class="value">${billStr}</span></div>
+                    <div class="detail-item"><span class="label">${i18n.tl_start_date}</span><span class="value">${c.start_date ? parseDDMMYYYY(c.start_date).toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—'}</span></div>
+                    ${contractEndBlock}
+                </div>
+                ${permBlock}
+                ${c.notes ? `<div><span class="date-label">${i18n.tl_notes_detail}</span><p style="font-size:0.875rem;line-height:1.6;">${c.notes}</p></div>` : ''}
+                <div>
+                    <span class="date-label" style="display:block;margin-bottom:8px;">${i18n.tl_documents}</span>
+                    ${docBlock}
+                    <label class="detail-upload-label" style="margin-top:10px;" title="Upload a file for this contract">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        ${i18n.tl_attach_doc}
+                        <input type="file" style="display:none;" accept=".pdf,.jpg,.jpeg,.png" onchange="uploadDetailDoc(${c.id}, this)">
+                    </label>
+                </div>
+                <div style="margin-top:auto;padding-top:1rem;border-top:2px solid var(--border-light);">
+                    <button class="delete-btn" onclick="showDeleteConfirm(${c.id})">${i18n.tl_delete_contract}</button>
+                </div>
+            `;
+
+            document.getElementById('globalOverlay').style.display = 'block';
+            const modal = document.getElementById('detailModal');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('show'), 10);
+        }
+
+        function closeAllModals() {
+            ['addModal', 'detailModal'].forEach(id => {
+                const el = document.getElementById(id);
+                el.classList.remove('show');
+                setTimeout(() => { el.style.display = 'none'; }, 300);
+            });
+            const lgModal = document.getElementById('loginModal');
+            lgModal.classList.remove('show');
+            const delModal = document.getElementById('deleteConfirmModal');
+            if (delModal) delModal.classList.remove('show');
+            setTimeout(() => {
+                document.getElementById('globalOverlay').style.display = 'none';
+                lgModal.style.display = 'none';
+                if (delModal) delModal.style.display = 'none';
+                document.getElementById('contractForm').reset();
+                document.getElementById('fileName').innerText = translations[currentLang]['lbl_doc_up'];
+            }, 300);
+        }
+
+        function updateFileName() {
+            const input = document.getElementById('fileInput');
+            const hasFile = input.files.length > 0;
+            document.getElementById('fileName').innerText = hasFile ? input.files[0].name : translations[currentLang]['lbl_doc_up'];
+        }
+
+        async function uploadDetailDoc(contractId, input) {
+            if (!input.files.length) return;
+            const fd = new FormData();
+            fd.append('document', input.files[0]);
+            try {
+                const res = await fetch(`/api/contracts/${contractId}`, { method: 'PUT', body: fd });
+                if (res.ok) { loadContracts(); openDetailPanel(contractId); }
+                else { alert('Upload failed'); }
+            } catch(e) { alert('Network error'); }
+        }
+
+        let aiModels = {
+            claude: [
+                { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+                { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' }
+            ]
+        };
+
+        async function detectAiProvider() {
+            const key = document.getElementById('aiApiKeyInput').value.trim();
+            const provSelect = document.getElementById('aiProviderSelect');
+            let matched = '';
+            
+            if (key.startsWith('nvapi-')) matched = 'nvidia';
+            else if (key.startsWith('sk-ant-')) matched = 'claude';
+            else if (key.startsWith('AIza')) matched = 'gemini';
+            else if (key.startsWith('sk-proj-') || key.startsWith('sk-')) matched = 'openai';
+
+            if (matched) {
+                provSelect.value = matched;
+                await populateModels(matched);
+            } else {
+                provSelect.value = '';
+                document.getElementById('aiModelSelect').innerHTML = '';
+                document.getElementById('aiModelGroup').style.display = 'none';
+            }
+        }
+
+        async function populateModels(provider, selectedModel = null) {
+            const group = document.getElementById('aiModelGroup');
+            const select = document.getElementById('aiModelSelect');
+            const key = document.getElementById('aiApiKeyInput').value.trim();
+            const i18n = translations[currentLang] || translations['en'];
+            
+            select.innerHTML = `<option value="">${i18n.msg_fetching_models}</option>`;
+            group.style.display = 'block';
+
+            if (aiModels[provider]) {
+                select.innerHTML = '';
+                aiModels[provider].forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.value;
+                    opt.textContent = m.label;
+                    select.appendChild(opt);
+                });
+                if (selectedModel) select.value = selectedModel;
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/list-models?provider=${provider}&apiKey=${encodeURIComponent(key)}`);
+                if (!res.ok) throw new Error('Fetch failed');
+                const models = await res.json();
+                
+                select.innerHTML = '';
+                if (models.length === 0) {
+                    select.innerHTML = `<option value="">${i18n.msg_no_models}</option>`;
+                    return;
+                }
+
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.value;
+                    opt.textContent = m.label;
+                    select.appendChild(opt);
+                });
+                if (selectedModel) select.value = selectedModel;
+            } catch(e) {
+                console.error("Model discovery error:", e);
+                select.innerHTML = `<option value="">${i18n.msg_fetch_failed}</option>`;
+            }
+        }
+
+        async function saveAiSettings() {
+            const provider = document.getElementById('aiProviderSelect').value;
+            const key = document.getElementById('aiApiKeyInput').value.trim();
+            const model = document.getElementById('aiModelSelect').value || '';
+
+            // Allow clearing settings if key is empty
+            if (!key) {
+                if (confirm(currentLang === 'zh' ? '确定要清空并禁用 AI 助手吗？' : 'Clear and disable AI settings?')) {
+                    const res = await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ai_provider: '', ai_api_key: '', ai_model: '' })
+                    });
+                    if (res.ok) {
+                        document.getElementById('aiSaveMsg').style.display = 'block';
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                }
+                return;
+            }
+
+            if (!provider) { alert('Invalid API key format.'); return; }
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ai_provider: provider, ai_api_key: key, ai_model: model })
+                });
+                if (res.ok) {
+                    const msg = document.getElementById('aiSaveMsg');
+                    msg.style.display = 'block';
+                    setTimeout(() => msg.style.display = 'none', 3000);
+                } else { alert('Failed to save settings'); }
+            } catch(e) { alert('Network error'); }
+        }
+
+        async function loadAiSettings() {
+            try {
+                const res = await fetch('/api/settings');
+                const cfg = await res.json();
+                if (cfg.ai_api_key) {
+                    document.getElementById('aiApiKeyInput').value = cfg.ai_api_key;
+                    await detectAiProvider();
+                }
+                if (cfg.ai_model && document.getElementById('aiModelSelect')) {
+                    document.getElementById('aiModelSelect').value = cfg.ai_model;
+                }
+            } catch(e) {}
+        }
+
+        async function analyzeWithAI() {
+            const input = document.getElementById('fileInput');
+            const btn = document.getElementById('aiAnalyzeBtn');
+            
+            if (!input.files || !input.files.length) {
+                alert(currentLang === 'zh' ? '请先上传PDF或JPG合同文件' : 'Please upload a PDF or JPG contract file first');
+                return;
+            }
+            
+            btn.classList.add('loading');
+            btn.textContent = 'Analyzing...';
+            
+            const fd = new FormData();
+            fd.append('document', input.files[0]);
+            fd.append('lang', currentLang);
+            try {
+                const res = await fetch('/api/analyze-contract', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (!res.ok) { alert('AI error: ' + (data.error || 'Unknown error')); return; }
+                const form = document.getElementById('contractForm');
+
+                // Title – cap at 40 chars
+                if (data.title) form.querySelector('[name=title]').value = data.title.substring(0, 40);
+
+                // Simple fields
+                if (data.category) form.querySelector('[name=category]').value = data.category;
+                if (data.monthly_cost != null) form.querySelector('[name=monthly_cost]').value = data.monthly_cost;
+                if (data.billing_cycle) form.querySelector('[name=billing_cycle]').value = data.billing_cycle;
+
+                // Dates – use flatpickr setDate() so the display field updates too
+                const fpInstances = Array.isArray(datePickers) ? datePickers : (datePickers ? [datePickers] : []);
+                
+                const dateFieldsToMap = [
+                    { name: 'start_date', val: data.start_date },
+                    { name: 'contract_end_date', val: data.contract_end_date },
+                    { name: 'permanencia_end_date', val: data.permanencia_end_date }
+                ];
+
+                dateFieldsToMap.forEach(f => {
+                    const el = form.querySelector(`input[name="${f.name}"]`);
+                    if (el && f.val) {
+                        // Find the flatpickr instance attached to this exact hidden or original element
+                        const fp = fpInstances.find(p => p && (p.element === el || p.input === el || p.altInput === el));
+                        if (fp) {
+                            fp.setDate(f.val, true); // true = trigger change event
+                        } else {
+                            el.value = f.val; // fallback
+                        }
+                    }
+                });
+
+                // Notes
+                if (data.notes) {
+                    const n = form.querySelector('[name=notes]');
+                    if (n) n.value = data.notes;
+                } else {
+                    // Warn user if AI returned empty notes (language mismatch or model issue)
+                    const i18n = translations[currentLang] || translations['en'];
+                    const warnMsg = currentLang === 'zh' ? '⚠️ AI 未能生成备注，请手动填写。' : currentLang === 'es' ? '⚠️ La IA no generó notas. Por favor, rellénelas manualmente.' : '⚠️ AI did not return notes. Please fill them in manually.';
+                    const n = form.querySelector('[name=notes]');
+                    if (n) n.placeholder = warnMsg;
+                }
+
+            } catch(e) { alert('Network error: ' + e.message); }
+            finally {
+                btn.classList.remove('loading');
+                btn.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> <span data-i18n="btn_analyze_ai">${(translations[currentLang]||translations['en']).btn_analyze_ai}</span>`;
+            }
+        }
+
+        // --- Build a single contract row HTML ---
+        function buildRowHtml(c) {
+            const i18n = translations[currentLang];
+            const today = new Date();
+            let permBadge = `<span class="no-perm-badge">${i18n.no_perm}</span>`;
+            let endDateHtml = '';
+            let rowStyle = '';
+
+            // Permanencia badge
+            if (c.permanencia_end_date) {
+                const pEnd = parseDDMMYYYY(c.permanencia_end_date);
+                if (pEnd) {
+                    const dP = Math.ceil((pEnd - today) / 86400000);
+                    if (dP > 0 && dP <= 30) {
+                        permBadge = `<span class="permanencia-badge ending">${dP} ${i18n.days_rem}</span>`;
+                        rowStyle = 'style="border-color:#000000;background:#000000;color:#ffffff;"';
+                    } else if (dP > 0) {
+                        const ds = pEnd.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+                        permBadge = `<span class="permanencia-badge">${ds}</span>`;
+                    } else {
+                        permBadge = `<span class="permanencia-badge ended">Perm. ${i18n.perm_ended}</span>`;
+                    }
+                }
+            }
+
+            // Contract end date column
+            if (c.contract_end_date) {
+                const cEnd = parseDDMMYYYY(c.contract_end_date);
+                if (cEnd) {
+                    const dC = Math.ceil((cEnd - today) / 86400000);
+                    const cStr = cEnd.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB',{day:'numeric',month:'short',year:'numeric'});
+                    const label = dC <= 30 && dC > 0 ? `<span style="color:#F97316;font-weight:800;">${i18n.tl_renews} ${cStr}</span>` : cStr;
+                    endDateHtml = `<div><span class="date-label">${i18n.tl_contract_end}</span><div class="date-value">${label}</div></div>`;
+                } else {
+                    endDateHtml = `<div><span class="date-label">${i18n.tl_contract_end}</span><div class="date-value">${c.contract_end_date}</div></div>`;
+                }
+            } else {
+                endDateHtml = `<div><span class="date-label">${i18n.tl_contract_end}</span><div class="date-value" style="color:var(--text-tertiary);">${i18n.tl_rolling}</div></div>`;
+            }
+
+            const iconStyle = rowStyle ? 'style="background:#FFFFFF;border-color:#FFFFFF;"' : '';
+            const subStyle = rowStyle ? 'style="color:#EEEEEE;"' : '';
+            const badgeStyle = rowStyle ? 'style="background:transparent;color:#FFFFFF;border-color:#FFFFFF;"' : '';
+
+            const catStr = i18n['cat_' + (c.category || 'other').toLowerCase()] || c.category || 'Other';
+            const billStr = i18n['bill_' + (c.billing_cycle || 'monthly').toLowerCase()] || c.billing_cycle || 'Monthly';
+
+            return `<div class="list-row" ${rowStyle} onclick="openDetailPanel(${c.id})">
+                <div class="provider-icon" ${iconStyle}>
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <div class="contract-info">
+                    <span class="contract-title">${c.title}</span>
+                    <span class="contract-sub" ${subStyle}>${catStr} · ${billStr}</span>
+                </div>
+                <span class="permanencia-badge" ${badgeStyle}>${catStr}</span>
+                <div class="cost-value">€${Number(c.monthly_cost).toFixed(2)}</div>
+                <div>${permBadge}</div>
+                ${endDateHtml}
+            </div>`;
+        }
+
+        async function loadContracts() {
+            try {
+                const response = await fetch('/api/contracts');
+                const raw = await response.json();
+                // Guard: if the API returned an error object, treat as empty
+                allContracts = Array.isArray(raw) ? raw : [];
+                if (!Array.isArray(raw)) console.error('GET /api/contracts returned non-array:', raw);
+
+                let total = 0;
+                let upcomingCount = 0;
+                const today = new Date();
+                let rowsHtml = '';
+
+                allContracts.forEach(c => {
+                    total += Number(c.monthly_cost);
+                    // count upcoming renewals: contract_end_date OR permanencia_end_date within 30 days
+                    const checkDate = c.contract_end_date || c.permanencia_end_date;
+                    if (checkDate) {
+                        const dObj = parseDDMMYYYY(checkDate);
+                        const d = dObj ? Math.ceil((dObj - today) / 86400000) : -1;
+                        if (d > 0 && d <= 30) upcomingCount++;
+                    }
+                    rowsHtml += buildRowHtml(c);
+                });
+
+                document.getElementById('totalExpenses').innerText = `€${total.toFixed(2)}`;
+                document.getElementById('upcomingRenewals').innerText = upcomingCount > 0 && upcomingCount < 10 ? `0${upcomingCount}` : String(upcomingCount);
+
+                const overviewList = document.getElementById('contractList');
+                const contractsList = document.getElementById('contractListContracts');
+                const i18n = translations[currentLang] || translations['en'];
+                if (overviewList) overviewList.innerHTML = rowsHtml || `<p style="color:var(--text-secondary);font-size:0.875rem;padding:1rem 0;">${i18n.tl_no_contracts}</p>`;
+                if (contractsList) contractsList.innerHTML = overviewList ? overviewList.innerHTML : rowsHtml;
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        let contractToDelete = null;
+
+        function showDeleteConfirm(id) {
+            contractToDelete = id;
+            document.getElementById('globalOverlay').style.display = 'block';
+            
+            const btn = document.getElementById('btnConfirmDelete');
+            btn.onclick = () => deleteContract(contractToDelete);
+            
+            const modal = document.getElementById('deleteConfirmModal');
+            modal.style.display = 'block';
+            setTimeout(() => modal.classList.add('show'), 10);
+        }
+
+        async function deleteContract(id) {
+            try {
+                const res = await fetch(`/api/contracts/${id}`, { method: 'DELETE' });
+                if (res.ok) { closeAllModals(); loadContracts(); }
+                else { const d = await res.json(); alert('Error: ' + d.error); }
+            } catch(e) { alert('Network error'); }
+        }
+
+        async function submitContract(e) {
+            e.preventDefault();
+            const formData = new FormData(document.getElementById('contractForm'));
+            try {
+                const response = await fetch('/api/contracts', { method: 'POST', body: formData });
+                if (response.ok) { closeAllModals(); loadContracts(); }
+                else { alert('Error adding contract'); }
+            } catch (err) { console.error(err); alert('Network error'); }
+        }
+
+        async function importBackup(file) {
+            if (!file) return;
+            const msg = currentLang === 'zh' ? '确定要覆盖所有本地数据吗？' : 'Are you sure? This will OVERWRITE all your data.';
+            if (!confirm(msg)) return;
+            const formData = new FormData();
+            formData.append('backup', file);
+            try {
+                const response = await fetch('/api/import', { method: 'POST', body: formData });
+                if (response.ok) { location.reload(); }
+                else { const data = await response.json(); alert('Error: ' + data.error); }
+            } catch (err) { console.error(err); alert('Network error'); }
+        }
+
+        let spendingChart = null;
+        const categoryColors = {
+            'services': '#3B82F6',
+            'insurance': '#10B981',
+            'rent': '#F59E0B',
+            'subscription': '#8B5CF6',
+            'finance': '#EF4444',
+            'other': '#6B7280'
+        };
+
+        function renderAnalytics() {
+            const today = new Date();
+            let totalTotal = 0;
+            let byCategory = {};
+            let upcoming = [];
+            const i18n = translations[currentLang] || translations['en'];
+
+            // Header titles for persistence
+            document.querySelectorAll('[data-panel="analytics"] h1').forEach(h => {
+                if(h.innerText.includes('Analysis') || h.innerText.includes('Análisis') || h.innerText.includes('分析')) {
+                    h.innerText = i18n.nav_analytics;
+                }
+            });
+
+            // 1. Data Processing
+            allContracts.forEach(c => {
+                const cost = Number(c.monthly_cost);
+                totalTotal += cost;
+                const catRaw = (c.category || 'Other').toLowerCase();
+                const catStr = i18n['cat_' + catRaw] || catRaw;
+                byCategory[catStr] = (byCategory[catStr] || 0) + cost;
+
+                const checkDate = c.contract_end_date || c.permanencia_end_date;
+                if (checkDate) {
+                    const dObj = parseDDMMYYYY(checkDate);
+                    const d = dObj ? Math.ceil((dObj - today) / 86400000) : -1;
+                    if (d > 0 && d <= 90) upcoming.push({title: c.title, days: d, date: checkDate, type: c.contract_end_date ? i18n.tl_contract_end : i18n.tl_permanencia});
+                }
+            });
+            upcoming.sort((a,b) => a.days - b.days);
+
+            // 2. Multi-Category Trend Calculation (Last 12 Months)
+            const monthLabels = [];
+            const datasetsMap = {}; // category -> data array
+            const catsInUse = [...new Set(allContracts.map(c => (c.category || 'Other').toLowerCase()))];
+            catsInUse.forEach(cat => datasetsMap[cat] = new Array(12).fill(0));
+
+            for (let i = 11; i >= 0; i--) {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                const mLabel = d.toLocaleString(currentLang === 'zh' ? 'zh-CN' : (currentLang === 'es' ? 'es-ES' : 'en-GB'), { month: 'short' });
+                monthLabels.push(mLabel);
+                
+                allContracts.forEach(c => {
+                    const start = parseDDMMYYYY(c.start_date);
+                    if (start && start <= new Date(d.getFullYear(), d.getMonth() + 1, 0)) {
+                        const cat = (c.category || 'Other').toLowerCase();
+                        datasetsMap[cat][11 - i] += Number(c.monthly_cost);
+                    }
+                });
+            }
+
+            const chartDatasets = Object.entries(datasetsMap).map(([cat, data]) => {
+                const catKey = cat.toLowerCase();
+                return {
+                    label: i18n['cat_' + catKey] || cat,
+                    data: data,
+                    backgroundColor: categoryColors[catKey] || '#D1D5DB',
+                    hoverBackgroundColor: categoryColors[catKey] || '#D1D5DB'
+                };
+            });
+
+            // 3. UI Construction
+            let catRows = Object.entries(byCategory).map(([cat, amt]) => {
+                const pct = totalTotal > 0 ? ((amt / totalTotal) * 100).toFixed(0) : 0;
+                return `<div style="margin-bottom:1rem;">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-weight:700;font-size:0.875rem;">${cat}</span>
+                        <span style="font-weight:700;">€${amt.toFixed(2)} <span style="color:var(--text-secondary);font-weight:400;">(${pct}%)</span></span>
+                    </div>
+                    <div style="height:8px;background:#EEEEEE;border-radius:99px;overflow:hidden;">
+                        <div style="height:100%;width:${pct}%;background:#111111;border-radius:99px;"></div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            let upcomingRows = upcoming.length === 0
+                ? `<p style="color:var(--text-secondary);font-size:0.875rem;">${i18n.tl_no_upcoming_renewals}</p>`
+                : upcoming.map(u => `<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:2px solid var(--border-light);">
+                    <div><div style="font-weight:700;font-size:0.9rem;">${u.title}</div><div style="font-size:0.75rem;color:var(--text-secondary);">${u.type}</div></div>
+                    <span style="font-weight:800;font-size:0.875rem;color:${u.days <= 30 ? '#F97316' : '#111111'};">${u.days} ${i18n.days_rem.split(' ')[0]||'days'}</span>
+                  </div>`).join('');
+
+            document.getElementById('analyticsContent').innerHTML = `
+                <div style="background:#FFF;border:2px solid #000;border-radius:var(--radius-2xl);padding:1.5rem;">
+                    <div style="font-size:0.625rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:1.5rem;" data-i18n="tl_historical_trend">${i18n.tl_historical_trend}</div>
+                    <div style="height:250px;width:100%;"><canvas id="spendingChartCanvas"></canvas></div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;">
+                    <div style="background:#FFF;border:2px solid #000;border-radius:var(--radius-2xl);padding:1.5rem;">
+                        <div style="font-size:0.625rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:1rem;">${i18n.tl_spending_cat}</div>
+                        ${catRows || `<p style="color:var(--text-secondary);font-size:0.875rem;">${i18n.tl_no_data}</p>`}
+                    </div>
+                    <div style="background:#FFF;border:2px solid #000;border-radius:var(--radius-2xl);padding:1.5rem;">
+                        <div style="font-size:0.625rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:1rem;">${i18n.tl_upcoming_90_days}</div>
+                        ${upcomingRows}
+                    </div>
+                </div>
+
+                <div style="background:#000;color:#FFF;border-radius:var(--radius-2xl);padding:1.5rem;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+                        <div style="font-size:0.625rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;" data-i18n="tl_ai_insights">${i18n.tl_ai_insights}</div>
+                        <button class="btn-primary" onclick="getAiAdvice()" style="background:#FFF;color:#000;padding:6px 14px;font-size:0.75rem;" id="adviceBtn">
+                            ${i18n.btn_generate_advice}
+                        </button>
+                    </div>
+                    <div id="aiAdviceResult" style="font-size:0.875rem;line-height:1.6;color:#E5E7EB;max-height:300px;overflow-y:auto;padding-right:10px;">
+                        ${i18n.tl_no_data}
+                    </div>
+                </div>
+            `;
+
+            // Initialize Chart
+            setTimeout(() => {
+                const ctx = document.getElementById('spendingChartCanvas').getContext('2d');
+                if (spendingChart) spendingChart.destroy();
+                spendingChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: monthLabels,
+                        datasets: chartDatasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+                            tooltip: { mode: 'index', intersect: false }
+                        },
+                        scales: {
+                            y: { stacked: true, beginAtZero: true, grid: { color: '#F3F4F6' } },
+                            x: { stacked: true, grid: { display: false } }
+                        }
+                    }
+                });
+            }, 50);
+        }
+
+        async function getAiAdvice() {
+            const btn = document.getElementById('adviceBtn');
+            const resArea = document.getElementById('aiAdviceResult');
+            const i18n = translations[currentLang] || translations['en'];
+
+            btn.disabled = true;
+            btn.innerText = i18n.msg_ai_consulting;
+            resArea.innerHTML = `<div style="display:flex;align-items:center;gap:10px;"><div class="upload-icon" style="width:20px;height:20px;border-width:2px;animation:spin 1s linear infinite;"></div> <span>${i18n.msg_ai_consulting}</span></div>`;
+
+            try {
+                const res = await fetch('/api/ai-advice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lang: currentLang })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                
+                // Extremely simple Markdown-ish conversion (bullets/bold)
+                let html = data.advice
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/^\d\.\s/gm, '<br><strong>$0</strong>')
+                    .replace(/^\*\s/gm, '• ')
+                    .replace(/\n/g, '<br>');
+                
+                resArea.innerHTML = html;
+            } catch(e) {
+                resArea.innerHTML = `<span style="color:#EF4444;">Error: ${e.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerText = i18n.btn_generate_advice;
+            }
+        }
+    </script>
+</body>
+</html>
