@@ -1,7 +1,7 @@
 {
   "name": "xeck",
-  "version": "1.0.2",
-  "description": "Xeck - Private Contract Manager",
+  "version": "1.0.0",
+  "description": "Xeck",
   "main": "main.js",
   "repository": {
     "type": "git",

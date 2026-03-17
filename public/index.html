@@ -918,6 +918,18 @@
             </div>
 
             <div class="settings-card">
+                <div class="settings-card-title" data-i18n="set_version">Application Version</div>
+                <div style="display:flex; flex-direction:column; gap:0.5rem; margin-top:1rem;">
+                    <p style="font-size:0.875rem; font-weight:600;"><span data-i18n="lbl_current_version">Current Version</span>: <span id="currentVersionDisplay">1.0.2</span></p>
+                    <button class="btn-primary" id="btnCheckUpdate" onclick="checkForUpdates()" style="width:fit-content; margin-top:0.5rem;">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span data-i18n="btn_check_update">Check for Updates</span>
+                    </button>
+                    <p id="updateCheckMsg" style="font-size:0.75rem; color:var(--text-secondary); display:none;"></p>
+                </div>
+            </div>
+
+            <div class="settings-card">
                 <div class="settings-card-title" data-i18n="set_data">Data Management</div>
                 <div style="display: flex; gap: 1rem; margin-top: 1rem;">
                     <button class="btn-primary" onclick="window.location.href='/api/export'" style="background-color: #10B981;">
@@ -1184,7 +1196,10 @@
                 msg_saved: "Saved successfully", msg_fetching_models: "Fetching models...", msg_no_models: "No models found",
                 msg_fetch_failed: "Discovery failed, save anyway", tl_historical_trend: "Historical Spending Trend (Last 12 Months)",
                 btn_generate_advice: "✨ Get Professional AI Advice", msg_ai_consulting: "Our AI specialist is reviewing your portfolio...",
-                tl_ai_insights: "Professional AI Insights", btn_logout: "Logout / Switch Storage"
+                tl_ai_insights: "Professional AI Insights", btn_logout: "Logout / Switch Storage",
+                set_version: "Application Version", lbl_current_version: "Current Version", btn_check_update: "Check for Updates",
+                msg_checking_update: "Checking for updates...", msg_latest_version: "You are already using the latest version.",
+                msg_update_available: "A new version is available! Please wait for the download prompt."
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
@@ -1230,6 +1245,9 @@
                 msg_fetch_failed: "Error al descubrir", tl_historical_trend: "Tendencia de Gasto Histórico (Últimos 12 meses)",
                 btn_generate_advice: "✨ Obtener Asesoría Profesional IA", msg_ai_consulting: "Nuestro especialista en IA está revisando su cartera...",
                 tl_ai_insights: "Perspectivas Profesionales de IA", btn_logout: "Cerrar Sesión / Cambiar Cuenta",
+                set_version: "Versión de la Aplicación", lbl_current_version: "Versión Actual", btn_check_update: "Buscar Actualizaciones",
+                msg_checking_update: "Buscando actualizaciones...", msg_latest_version: "Ya estás usando la versión más reciente.",
+                msg_update_available: "¡Hay una nueva versión disponible! Por favor, espera al mensaje de descarga.",
                 sync_status: "Sincronizando...", sync_local: "Solo Almacenamiento Local", sync_cloud: "Conectado a Drive",
                 sync_last: "Última sinc.", sync_failed: "Sinc. fallida"
             },
@@ -1279,7 +1297,10 @@
                 btn_generate_advice: "✨ 获取 AI 专业咨询建议", msg_ai_consulting: "我们的 AI 专家正在审阅您的合同组合...",
                 tl_ai_insights: "AI 专业洞察",
                 sync_status: "同步中...", sync_local: "数据仅存本地", sync_cloud: "已连接网盘",
-                sync_last: "上次同步", sync_failed: "同步失败"
+                sync_last: "上次同步", sync_failed: "同步失败",
+                set_version: "应用版本", lbl_current_version: "当前版本", btn_check_update: "检查更新",
+                msg_checking_update: "正在检查更新...", msg_latest_version: "您当前已是最新版本。",
+                msg_update_available: "发现新版本！请稍后并在弹出的窗口中确认下载。"
             }
         };
 
@@ -1324,6 +1345,14 @@
             await changeLanguage(savedLang, true); 
             
             document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeAllModals(); });
+
+            // Fetch and display current version
+            fetch('/api/version')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.version) document.getElementById('currentVersionDisplay').innerText = data.version;
+                })
+                .catch(() => {});
         });
 
         function switchTab(viewId) {
@@ -1439,6 +1468,39 @@
                 // For 'local' mode, apply changes immediately
                 closeAllModals();
                 await applyUserIdentity();
+            }
+        }
+
+        async function checkForUpdates() {
+            const btn = document.getElementById('btnCheckUpdate');
+            const msg = document.getElementById('updateCheckMsg');
+            const i18n = translations[currentLang];
+            
+            btn.disabled = true;
+            msg.innerText = i18n.msg_checking_update;
+            msg.style.display = 'block';
+            msg.style.color = 'var(--text-secondary)';
+
+            try {
+                const res = await fetch('/api/check-updates');
+                const data = await res.json();
+                
+                if (data.updateAvailable) {
+                    msg.innerText = i18n.msg_update_available;
+                    msg.style.color = '#059669';
+                } else if (data.error) {
+                    msg.innerText = "Error: " + data.error;
+                    msg.style.color = '#EF4444';
+                    btn.disabled = false;
+                } else {
+                    msg.innerText = i18n.msg_latest_version;
+                    msg.style.color = '#059669';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                msg.innerText = "Error checking updates.";
+                msg.style.color = '#EF4444';
+                btn.disabled = false;
             }
         }
 

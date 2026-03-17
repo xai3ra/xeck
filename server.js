@@ -10,6 +10,7 @@ const { PDFParse } = require('pdf-parse');
 const { EventEmitter } = require('events');
 
 const authBus = new EventEmitter();
+const updateBus = new EventEmitter();
 
 const CATEGORY_I18N = {
     en: {
@@ -927,6 +928,15 @@ function moveAndRenameFile(tempPath, category, title, originalName) {
     return `Contracts/${cat}/${t}/${newFilename}`;
 }
 
+app.get('/api/version', (req, res) => {
+    try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+        res.json({ version: pkg.version });
+    } catch (e) {
+        res.json({ version: '1.0.2' });
+    }
+});
+
 // 鈹€鈹€鈹€ CONTRACTS API 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 app.get('/api/contracts', (req, res) => {
     db.all(`SELECT * FROM contracts ORDER BY id DESC`, [], (err, rows) => {
@@ -944,36 +954,42 @@ app.get('/api/contracts/:id', (req, res) => {
 });
 
 app.post('/api/contracts', upload.single('document'), (req, res) => {
-    const { title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes } = req.body;
-    let file_path = null;
-    if (req.file) {
-        file_path = moveAndRenameFile(req.file.path, category, title, req.file.originalname);
-    }
-    if (!title) return res.status(400).json({ error: 'Title is required' });
-
-    db.run(
-        `INSERT INTO contracts (title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes, file_path)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [title, category || 'Other', monthly_cost || 0, billing_cycle || 'Monthly',
-         start_date || null, contract_end_date || null, permanencia_end_date || null, notes || null, file_path],
-        function(err) {
-            if (err) {
-                console.error("DB INSERT ERROR:", err);
-                return res.status(500).json({ error: err.message });
+    db.get("SELECT value FROM settings WHERE key = 'xeck_login_mode'", (err, modeRow) => {
+        const isLocal = !modeRow || modeRow.value === 'local';
+        let file_path = null;
+        
+        if (req.file) {
+            if (isLocal) {
+                file_path = moveAndRenameFile(req.file.path, category, title, req.file.originalname);
+            } else {
+                // Cloud mode: Keep in uploads folder to avoid "Contracts" mirroring
+                file_path = `uploads/${path.basename(req.file.path)}`;
+                console.log("[Mode] Cloud mode: Keeping file in uploads.");
             }
-            const contractId = this.lastID;
-            console.log("DB INSERT SUCCESS:", contractId);
-            
-            const result = { id: contractId, title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes, file_path };
-            res.json(result);
-            
-            // Local Metadata
-            saveLocalMetadata(category, title, result);
-            
-            // Cloud Sync
-            triggerBackgroundSync();
         }
-    );
+
+        db.run(
+            `INSERT INTO contracts (title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes, file_path)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [title, category || 'Other', monthly_cost || 0, billing_cycle || 'Monthly',
+             start_date || null, contract_end_date || null, permanencia_end_date || null, notes || null, file_path],
+            function(err) {
+                if (err) {
+                    console.error("DB INSERT ERROR:", err);
+                    return res.status(500).json({ error: err.message });
+                }
+                const contractId = this.lastID;
+                const result = { id: contractId, title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes, file_path };
+                res.json(result);
+                
+                if (isLocal) {
+                    saveLocalMetadata(category, title, result);
+                } else {
+                    triggerBackgroundSync();
+                }
+            }
+        );
+    });
 });
 
 app.put('/api/contracts/:id', upload.single('document'), (req, res) => {
@@ -982,58 +998,49 @@ app.put('/api/contracts/:id', upload.single('document'), (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: 'Not found' });
         
-        let file_path = row.file_path;
-        if (req.file) {
-            file_path = moveAndRenameFile(req.file.path, category || row.category, title || row.title, req.file.originalname);
-        } else if ((title && title !== row.title) || (category && category !== row.category)) {
-            // User renamed contract or changed category, move the folder
-            const oldCat = sanitizePath(row.category || 'Other');
-            const oldTitle = sanitizePath(row.title);
-            const newCat = sanitizePath(category || row.category || 'Other');
-            const newTitle = sanitizePath(title || row.title);
-            
-            const oldDir = path.join(CONTRACTS_DIR, oldCat, oldTitle);
-            const newDir = path.join(CONTRACTS_DIR, newCat, newTitle);
-            
-            if (fs.existsSync(oldDir) && oldDir !== newDir) {
-                if (!fs.existsSync(path.join(CONTRACTS_DIR, newCat))) {
-                    fs.mkdirSync(path.join(CONTRACTS_DIR, newCat), { recursive: true });
-                }
-                // Safer cross-device move for folder rename would require recursive copy, 
-                // but since categories/titles are within the SAME app data dir, renameSync is usually fine.
-                // However, to follow the pattern for consistency:
-                try {
-                    fs.renameSync(oldDir, newDir);
-                } catch(e) {
-                    console.error("[Local] Folder rename failed, attempting manual copy...");
-                    // Fallback not implemented for entire directories yet, but renameSync works 99% of time in appData
-                }
-                
-                if (file_path && file_path.startsWith('Contracts/')) {
-                    file_path = `Contracts/${newCat}/${newTitle}/${path.basename(file_path)}`;
-                }
-                cleanupEmptyFolders(row.category);
-            }
-        }
+        db.get("SELECT value FROM settings WHERE key = 'xeck_login_mode'", (err, modeRow) => {
+            const isLocal = !modeRow || modeRow.value === 'local';
+            let file_path = row.file_path;
 
-        db.run(
-            `UPDATE contracts SET title=?, category=?, monthly_cost=?, billing_cycle=?, start_date=?, contract_end_date=?, permanencia_end_date=?, notes=?, file_path=? WHERE id=?`,
-            [title || row.title, category || row.category, monthly_cost ?? row.monthly_cost, billing_cycle || row.billing_cycle,
-             start_date !== undefined ? start_date : row.start_date,
-             contract_end_date !== undefined ? contract_end_date : row.contract_end_date,
-             permanencia_end_date !== undefined ? permanencia_end_date : row.permanencia_end_date,
-             notes !== undefined ? notes : row.notes, file_path, req.params.id],
-            function(err) {
-                if (err) return res.status(500).json({ error: err.message });
-                const updatedData = { ...row, title: title || row.title, category: category || row.category, monthly_cost: monthly_cost ?? row.monthly_cost, file_path };
-                res.json({ id: req.params.id, updated: true });
-                
-                // Update local metadata after DB update
-                saveLocalMetadata(updatedData.category, updatedData.title, updatedData.id ? updatedData : { ...updatedData, id: req.params.id });
-                
-                triggerBackgroundSync();
+            if (req.file) {
+                if (isLocal) {
+                    file_path = moveAndRenameFile(req.file.path, category || row.category, title || row.title, req.file.originalname);
+                } else {
+                    file_path = `uploads/${path.basename(req.file.path)}`;
+                }
+            } else if (isLocal && ((title && title !== row.title) || (category && category !== row.category))) {
+                const oldCat = sanitizePath(row.category || 'Other');
+                const oldTitle = sanitizePath(row.title);
+                const newCat = sanitizePath(category || row.category || 'Other');
+                const newTitle = sanitizePath(title || row.title);
+                const oldDir = path.join(CONTRACTS_DIR, oldCat, oldTitle);
+                const newDir = path.join(CONTRACTS_DIR, newCat, newTitle);
+                if (fs.existsSync(oldDir) && oldDir !== newDir) {
+                    if (!fs.existsSync(path.join(CONTRACTS_DIR, newCat))) fs.mkdirSync(path.join(CONTRACTS_DIR, newCat), { recursive: true });
+                    try { fs.renameSync(oldDir, newDir); } catch(e) {}
+                    if (file_path && file_path.startsWith('Contracts/')) {
+                        file_path = `Contracts/${newCat}/${newTitle}/${path.basename(file_path)}`;
+                    }
+                    cleanupEmptyFolders(row.category);
+                }
             }
-        );
+
+            db.run(
+                `UPDATE contracts SET title=?, category=?, monthly_cost=?, billing_cycle=?, start_date=?, contract_end_date=?, permanencia_end_date=?, notes=?, file_path=? WHERE id=?`,
+                [title || row.title, category || row.category, monthly_cost ?? row.monthly_cost, billing_cycle || row.billing_cycle,
+                 start_date !== undefined ? start_date : row.start_date,
+                 contract_end_date !== undefined ? contract_end_date : row.contract_end_date,
+                 permanencia_end_date !== undefined ? permanencia_end_date : row.permanencia_end_date,
+                 notes !== undefined ? notes : row.notes, file_path, req.params.id],
+                function(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+                    const updatedData = { ...row, title: title || row.title, category: category || row.category, monthly_cost: monthly_cost ?? row.monthly_cost, file_path };
+                    res.json({ id: req.params.id, updated: true });
+                    if (isLocal) saveLocalMetadata(updatedData.category, updatedData.title, updatedData.id ? updatedData : { ...updatedData, id: req.params.id });
+                    else triggerBackgroundSync();
+                }
+            );
+        });
     });
 });
 
@@ -1042,18 +1049,25 @@ app.delete('/api/contracts/:id', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: 'Not found' });
         
-        const cat = sanitizePath(row.category || 'Other');
-        const title = sanitizePath(row.title);
-        const targetDir = path.join(CONTRACTS_DIR, cat, title);
+        let targetDir = null;
+        let specificFile = null;
+        if (row.file_path) {
+            if (row.file_path.startsWith('Contracts/')) {
+                // Local Mode structured storage
+                targetDir = path.join(DATA_DIR, path.dirname(row.file_path));
+            } else {
+                // Cloud Mode flat storage (uploads/)
+                specificFile = path.join(DATA_DIR, row.file_path);
+            }
+        }
         
         try {
-            if (fs.existsSync(targetDir)) {
+            if (targetDir && fs.existsSync(targetDir)) {
                 fs.rmSync(targetDir, { recursive: true, force: true });
-            } else if (row.file_path) {
-                const absPath = path.join(DATA_DIR, row.file_path);
-                if (fs.existsSync(absPath)) {
-                    fs.unlinkSync(absPath); // legacy fallback
-                }
+                console.log(`[Delete] Deleted contract directory: ${targetDir}`);
+            } else if (specificFile && fs.existsSync(specificFile)) {
+                fs.unlinkSync(specificFile);
+                console.log(`[Delete] Deleted specific file: ${specificFile}`);
             }
         } catch (e) {
             console.error('Warning: Could not delete contract files:', e.message);
@@ -1304,20 +1318,26 @@ app.get('/auth/callback', async (req, res) => {
 async function getDriveClient() {
     const { google_client_id, google_client_secret } = await getGoogleConfig();
     return new Promise((resolve, reject) => {
-        db.get("SELECT value FROM settings WHERE key = 'google_tokens'", (err, row) => {
-            if (err || !row) return reject(new Error('Not authenticated'));
-            const tokens = JSON.parse(row.value);
-            const auth = new google.auth.OAuth2(google_client_id, google_client_secret, getRedirectUri());
-            auth.setCredentials(tokens);
+        db.get("SELECT value FROM settings WHERE key = 'xeck_login_mode'", (err, modeRow) => {
+            if (modeRow && modeRow.value === 'local') {
+                return reject(new Error('Cloud sync disabled in Local mode'));
+            }
+            
+            db.get("SELECT value FROM settings WHERE key = 'google_tokens'", (err, row) => {
+                if (err || !row) return reject(new Error('Not authenticated'));
+                const tokens = JSON.parse(row.value);
+                const auth = new google.auth.OAuth2(google_client_id, google_client_secret, getRedirectUri());
+                auth.setCredentials(tokens);
 
-            // --- ENHANCEMENT: Automatic Token Refresh Persistence ---
-            auth.on('tokens', (newTokens) => {
-                console.log('[OAuth] Tokens refreshed automatically, saving to DB...');
-                const updatedTokens = { ...tokens, ...newTokens };
-                db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['google_tokens', JSON.stringify(updatedTokens)]);
+                // --- ENHANCEMENT: Automatic Token Refresh Persistence ---
+                auth.on('tokens', (newTokens) => {
+                    console.log('[OAuth] Tokens refreshed automatically, saving to DB...');
+                    const updatedTokens = { ...tokens, ...newTokens };
+                    db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['google_tokens', JSON.stringify(updatedTokens)]);
+                });
+
+                resolve(google.drive({ version: 'v3', auth }));
             });
-
-            resolve(google.drive({ version: 'v3', auth }));
         });
     });
 }
@@ -1376,6 +1396,20 @@ async function getOrCreateFolder(drive, folderName, parentId = null) {
     return folder.data.id;
 }
 
+app.get('/api/check-updates', (req, res) => {
+    console.log('[API] Check for updates requested');
+    updateBus.emit('check-update', (result) => {
+        res.json(result);
+    });
+});
+
+app.get('/api/check-updates', (req, res) => {
+    console.log('[API] Check for updates requested');
+    updateBus.emit('check-update', (result) => {
+        res.json(result);
+    });
+});
+
 async function updateDriveManifest(drive, rootId) {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM contracts", [], async (err, contracts) => {
@@ -1411,9 +1445,14 @@ async function updateDriveManifest(drive, rootId) {
 
                 if (searchRes.data.files.length > 0) {
                     const fileId = searchRes.data.files[0].id;
-                    await drive.files.update({ fileId, media });
-                    console.log('[Sync] Manifest updated.');
-                } else {
+                    if (contracts.length === 0) {
+                        await drive.files.delete({ fileId });
+                        console.log('[Sync] Manifest deleted because no contracts remain.');
+                    } else {
+                        await drive.files.update({ fileId, media });
+                        console.log('[Sync] Manifest updated.');
+                    }
+                } else if (contracts.length > 0) {
                     await drive.files.create({
                         requestBody: { name: fileName, parents: [rootId] },
                         media
@@ -1430,19 +1469,18 @@ async function updateDriveManifest(drive, rootId) {
 
 async function deleteFromDrive(drive, rootId, contractId, title, category, fileName) {
     try {
-        console.log(`[Sync] Attempting to delete ${fileName} from Drive...`);
-        // Find the file by name - we search globally under Xeck_Contracts for safety
-        const searchRes = await drive.files.list({
-            q: `name = '${fileName}' and trashed = false`,
-            fields: 'files(id)'
-        });
-
-        for (const file of searchRes.data.files) {
-            await drive.files.delete({ fileId: file.id });
-            console.log(`[Sync] Deleted file ${file.id} (${fileName})`);
+        if (fileName) {
+            console.log(`[Sync] Attempting to delete ${fileName} from Drive...`);
+            const searchRes = await drive.files.list({
+                q: `name = '${fileName}' and trashed = false`,
+                fields: 'files(id)'
+            });
+            for (const file of searchRes.data.files) {
+                await drive.files.delete({ fileId: file.id });
+                console.log(`[Sync] Deleted file ${file.id} (${fileName})`);
+            }
         }
 
-        // Also cleanup the title folder if empty
         const translatedCat = getTranslatedCategoryName(category || 'Other');
         const cat = sanitizePath(translatedCat);
         const t = sanitizePath(title || 'Untitled');
@@ -1461,13 +1499,36 @@ async function deleteFromDrive(drive, rootId, contractId, title, category, fileN
             
             if (titleRes.data.files.length > 0) {
                 const titleId = titleRes.data.files[0].id;
+                
+                // Explicitly delete contract_metadata.json if it exists
+                const metaSearch = await drive.files.list({
+                    q: `name = 'contract_metadata.json' and '${titleId}' in parents and trashed = false`,
+                    fields: 'files(id)'
+                });
+                for (const meta of metaSearch.data.files) {
+                    await drive.files.delete({ fileId: meta.id });
+                    console.log(`[Sync] Deleted metadata ${meta.id} on Drive`);
+                }
+
                 const children = await drive.files.list({
                     q: `'${titleId}' in parents and trashed = false`,
                     fields: 'files(id)'
                 });
                 if (children.data.files.length === 0) {
                     await drive.files.delete({ fileId: titleId });
-                    console.log(`[Sync] Deleted empty folder ${titleId} (${t})`);
+                    console.log(`[Sync] Deleted empty title folder ${titleId} (${t})`);
+                    
+                    // Also check if Category folder is now empty
+                    const catChildren = await drive.files.list({
+                        q: `'${catId}' in parents and trashed = false`,
+                        fields: 'files(id)'
+                    });
+                    // Only manifest should stay in rootId; catFolders are children of rootId
+                    // but we verify catId's own children (which are other title folders)
+                    if (catChildren.data.files.length === 0) {
+                        await drive.files.delete({ fileId: catId });
+                        console.log(`[Sync] Deleted empty category folder ${catId} (${cat})`);
+                    }
                 }
             }
         }
@@ -1496,6 +1557,33 @@ async function triggerBackgroundSync() {
                 const catId = await getOrCreateFolder(drive, cat, rootId);
                 const titleId = await getOrCreateFolder(drive, title, catId);
 
+                // 1.1 Sync contract_metadata.json
+                const metadataFileName = 'contract_metadata.json';
+                const metadataSearch = await drive.files.list({
+                    q: `name = '${metadataFileName}' and '${titleId}' in parents and trashed = false`,
+                    fields: 'files(id)'
+                });
+                
+                const metadataContent = JSON.stringify({
+                    id: c.id, title: c.title, category: c.category,
+                    monthly_cost: c.monthly_cost, billing_cycle: c.billing_cycle,
+                    start_date: c.start_date, contract_end_date: c.contract_end_date,
+                    permanencia_end_date: c.permanencia_end_date, notes: c.notes
+                }, null, 2);
+
+                if (metadataSearch.data.files.length === 0) {
+                    await drive.files.create({
+                        requestBody: { name: metadataFileName, parents: [titleId] },
+                        media: { mimeType: 'application/json', body: metadataContent }
+                    });
+                } else {
+                    await drive.files.update({
+                        fileId: metadataSearch.data.files[0].id,
+                        media: { mimeType: 'application/json', body: metadataContent }
+                    });
+                }
+
+                // 1.2 Sync PDF/Image file
                 const searchRes = await drive.files.list({
                     q: `name = '${fileName}' and trashed = false`,
                     fields: 'files(id, parents)'
@@ -1560,6 +1648,33 @@ app.post('/api/sync', async (req, res) => {
                     currentParentId = (searchRes.data.files[0].parents || [])[0];
                 }
 
+                // 1.1 Sync contract_metadata.json
+                const metadataFileName = 'contract_metadata.json';
+                const metadataSearch = await drive.files.list({
+                    q: `name = '${metadataFileName}' and '${titleId}' in parents and trashed = false`,
+                    fields: 'files(id)'
+                });
+                
+                const metadataContent = JSON.stringify({
+                    id: c.id, title: c.title, category: c.category,
+                    monthly_cost: c.monthly_cost, billing_cycle: c.billing_cycle,
+                    start_date: c.start_date, contract_end_date: c.contract_end_date,
+                    permanencia_end_date: c.permanencia_end_date, notes: c.notes
+                }, null, 2);
+
+                if (metadataSearch.data.files.length === 0) {
+                    await drive.files.create({
+                        requestBody: { name: metadataFileName, parents: [titleId] },
+                        media: { mimeType: 'application/json', body: metadataContent }
+                    });
+                } else {
+                    await drive.files.update({
+                        fileId: metadataSearch.data.files[0].id,
+                        media: { mimeType: 'application/json', body: metadataContent }
+                    });
+                }
+
+                // 1.2 Sync PDF/Image file
                 if (cloudFileId) {
                     // If file exists but in WRONG folder (category changed), MOVE it
                     if (currentParentId !== titleId) {
@@ -1635,5 +1750,5 @@ const server = app.listen(0, async () => {
 });
 
 // For Electron integration if required as a module
-module.exports = { app, server, authBus };
+module.exports = { app, server, authBus, updateBus };
 

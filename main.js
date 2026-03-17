@@ -18,7 +18,28 @@ if (typeof global.DOMMatrix === 'undefined') {
   };
 }
 const { autoUpdater } = require('electron-updater');
-const { server, authBus } = require('./server');
+const { server, authBus, updateBus } = require('./server');
+
+// Handle manual update check from UI
+if (updateBus) {
+  updateBus.on('check-update', (callback) => {
+    autoUpdater.checkForUpdates()
+      .then(result => {
+        const currentVersion = app.getVersion();
+        const latestVersion = result.updateInfo.version;
+        console.log(`[Update] Manual check: Current=${currentVersion}, Latest=${latestVersion}`);
+        if (latestVersion !== currentVersion) {
+            callback({ updateAvailable: true, version: latestVersion });
+        } else {
+            callback({ updateAvailable: false });
+        }
+      })
+      .catch(err => {
+        console.error('[Update] Manual check error:', err);
+        callback({ error: err.message });
+      });
+  });
+}
 
 // Focus application when authentication succeeds
 if (authBus) {
