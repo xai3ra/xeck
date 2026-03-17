@@ -954,6 +954,9 @@ app.get('/api/contracts/:id', (req, res) => {
 });
 
 app.post('/api/contracts', upload.single('document'), (req, res) => {
+    const { title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    
     db.get("SELECT value FROM settings WHERE key = 'xeck_login_mode'", (err, modeRow) => {
         const isLocal = !modeRow || modeRow.value === 'local';
         let file_path = null;
