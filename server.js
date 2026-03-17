@@ -128,7 +128,7 @@ connectDB();
 
 // Multer for contract documents
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, 'uploads/'),
+    destination: (req, file, cb) => cb(null, UPLOADS_DIR),
     filename: (req, file, cb) => {
         const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
         cb(null, unique + path.extname(file.originalname));
@@ -138,7 +138,7 @@ const upload = multer({ storage });
 
 // Multer for backup import
 const importUpload = multer({ storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, './'),
+    destination: (req, file, cb) => cb(null, DATA_DIR),
     filename: (req, file, cb) => cb(null, 'imported_backup.zip')
 })});
 
@@ -884,7 +884,8 @@ function moveAndRenameFile(tempPath, category, title, originalName) {
         counter++;
     }
 
-    fs.renameSync(tempPath, newPath);
+    fs.copyFileSync(tempPath, newPath);
+    fs.unlinkSync(tempPath);
     return `Contracts/${cat}/${t}/${newFilename}`;
 }
 
