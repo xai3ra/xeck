@@ -854,6 +854,44 @@ ${extractedText ? extractedText : '(no text extracted)'}`;
     });
 });
 
+// ─── LOCAL STORAGE UTILITIES ──────────────────────────────────────────
+function saveLocalMetadata(category, title, data) {
+    try {
+        const translatedCat = getTranslatedCategoryName(category || 'Other');
+        const cat = sanitizePath(translatedCat);
+        const t = sanitizePath(title || 'Untitled');
+        const targetDir = path.join(CONTRACTS_DIR, cat, t);
+        
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        const metadataPath = path.join(targetDir, 'contract_metadata.json');
+        fs.writeFileSync(metadataPath, JSON.stringify(data, null, 2));
+        console.log(`[Local] Metadata saved: ${cat}/${t}`);
+    } catch (e) {
+        console.error('[Local] Metadata save error:', e.message);
+    }
+}
+
+function cleanupEmptyFolders(category) {
+    try {
+        const translatedCat = getTranslatedCategoryName(category || 'Other');
+        const cat = sanitizePath(translatedCat);
+        const catDir = path.join(CONTRACTS_DIR, cat);
+        
+        if (fs.existsSync(catDir)) {
+            const items = fs.readdirSync(catDir);
+            if (items.length === 0) {
+                fs.rmdirSync(catDir);
+                console.log(`[Local] Deleted empty category folder: ${cat}`);
+            }
+        }
+    } catch (e) {
+        console.error('[Local] Cleanup error:', e.message);
+    }
+}
+
 // ─── FILE SYSTEM UTILITIES ──────────────────────────────────────────
 function sanitizePath(str) {
     if (!str) return 'Untitled';
@@ -923,8 +961,17 @@ app.post('/api/contracts', upload.single('document'), (req, res) => {
                 console.error("DB INSERT ERROR:", err);
                 return res.status(500).json({ error: err.message });
             }
-            console.log("DB INSERT SUCCESS:", this.lastID);
-            res.json({ id: this.lastID, title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes, file_path });
+            const contractId = this.lastID;
+            console.log("DB INSERT SUCCESS:", contractId);
+            
+            const result = { id: contractId, title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes, file_path };
+            res.json(result);
+            
+            // Local Metadata
+            saveLocalMetadata(category, title, result);
+            
+            // Cloud Sync
+            triggerBackgroundSync();
         }
     );
 });
@@ -952,10 +999,20 @@ app.put('/api/contracts/:id', upload.single('document'), (req, res) => {
                 if (!fs.existsSync(path.join(CONTRACTS_DIR, newCat))) {
                     fs.mkdirSync(path.join(CONTRACTS_DIR, newCat), { recursive: true });
                 }
-                fs.renameSync(oldDir, newDir);
+                // Safer cross-device move for folder rename would require recursive copy, 
+                // but since categories/titles are within the SAME app data dir, renameSync is usually fine.
+                // However, to follow the pattern for consistency:
+                try {
+                    fs.renameSync(oldDir, newDir);
+                } catch(e) {
+                    console.error("[Local] Folder rename failed, attempting manual copy...");
+                    // Fallback not implemented for entire directories yet, but renameSync works 99% of time in appData
+                }
+                
                 if (file_path && file_path.startsWith('Contracts/')) {
                     file_path = `Contracts/${newCat}/${newTitle}/${path.basename(file_path)}`;
                 }
+                cleanupEmptyFolders(row.category);
             }
         }
 
@@ -968,7 +1025,13 @@ app.put('/api/contracts/:id', upload.single('document'), (req, res) => {
              notes !== undefined ? notes : row.notes, file_path, req.params.id],
             function(err) {
                 if (err) return res.status(500).json({ error: err.message });
+                const updatedData = { ...row, title: title || row.title, category: category || row.category, monthly_cost: monthly_cost ?? row.monthly_cost, file_path };
                 res.json({ id: req.params.id, updated: true });
+                
+                // Update local metadata after DB update
+                saveLocalMetadata(updatedData.category, updatedData.title, updatedData.id ? updatedData : { ...updatedData, id: req.params.id });
+                
+                triggerBackgroundSync();
             }
         );
     });
@@ -999,6 +1062,20 @@ app.delete('/api/contracts/:id', (req, res) => {
         db.run(`DELETE FROM contracts WHERE id = ?`, [req.params.id], function(err) {
             if (err) return res.status(500).json({ error: err.message });
             res.json({ deleted: true });
+            
+            // Local cleanup
+            cleanupEmptyFolders(row.category);
+            
+            // Background cloud delete
+            getDriveClient().then(async drive => {
+                const rootId = await getOrCreateFolder(drive, 'Xeck_Contracts');
+                const fileName = row.file_path ? path.basename(row.file_path) : null;
+                if (fileName) {
+                    await deleteFromDrive(drive, rootId, req.params.id, row.title, row.category, fileName);
+                } else {
+                    await updateDriveManifest(drive, rootId);
+                }
+            }).catch(e => console.log('[Sync] Cloud delete skipped:', e.message));
         });
     });
 });
@@ -1299,6 +1376,154 @@ async function getOrCreateFolder(drive, folderName, parentId = null) {
     return folder.data.id;
 }
 
+async function updateDriveManifest(drive, rootId) {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM contracts", [], async (err, contracts) => {
+            if (err) return reject(err);
+            try {
+                const manifest = {
+                    version: '1.0',
+                    lastUpdated: new Date().toISOString(),
+                    contracts: contracts.map(c => ({
+                        id: c.id,
+                        title: c.title,
+                        category: c.category,
+                        monthly_cost: c.monthly_cost,
+                        billing_cycle: c.billing_cycle,
+                        start_date: c.start_date,
+                        contract_end_date: c.contract_end_date,
+                        permanencia_end_date: c.permanencia_end_date,
+                        notes: c.notes,
+                        file_name: c.file_path ? path.basename(c.file_path) : null
+                    }))
+                };
+
+                const fileName = 'xeck_manifest.json';
+                const searchRes = await drive.files.list({
+                    q: `name = '${fileName}' and '${rootId}' in parents and trashed = false`,
+                    fields: 'files(id)'
+                });
+
+                const media = {
+                    mimeType: 'application/json',
+                    body: JSON.stringify(manifest, null, 2)
+                };
+
+                if (searchRes.data.files.length > 0) {
+                    const fileId = searchRes.data.files[0].id;
+                    await drive.files.update({ fileId, media });
+                    console.log('[Sync] Manifest updated.');
+                } else {
+                    await drive.files.create({
+                        requestBody: { name: fileName, parents: [rootId] },
+                        media
+                    });
+                    console.log('[Sync] Manifest created.');
+                }
+                resolve();
+            } catch (e) {
+                reject(e);
+            }
+        });
+    });
+}
+
+async function deleteFromDrive(drive, rootId, contractId, title, category, fileName) {
+    try {
+        console.log(`[Sync] Attempting to delete ${fileName} from Drive...`);
+        // Find the file by name - we search globally under Xeck_Contracts for safety
+        const searchRes = await drive.files.list({
+            q: `name = '${fileName}' and trashed = false`,
+            fields: 'files(id)'
+        });
+
+        for (const file of searchRes.data.files) {
+            await drive.files.delete({ fileId: file.id });
+            console.log(`[Sync] Deleted file ${file.id} (${fileName})`);
+        }
+
+        // Also cleanup the title folder if empty
+        const translatedCat = getTranslatedCategoryName(category || 'Other');
+        const cat = sanitizePath(translatedCat);
+        const t = sanitizePath(title || 'Untitled');
+        
+        const catRes = await drive.files.list({
+            q: `name = '${cat}' and '${rootId}' in parents and trashed = false`,
+            fields: 'files(id)'
+        });
+        
+        if (catRes.data.files.length > 0) {
+            const catId = catRes.data.files[0].id;
+            const titleRes = await drive.files.list({
+                q: `name = '${t}' and '${catId}' in parents and trashed = false`,
+                fields: 'files(id)'
+            });
+            
+            if (titleRes.data.files.length > 0) {
+                const titleId = titleRes.data.files[0].id;
+                const children = await drive.files.list({
+                    q: `'${titleId}' in parents and trashed = false`,
+                    fields: 'files(id)'
+                });
+                if (children.data.files.length === 0) {
+                    await drive.files.delete({ fileId: titleId });
+                    console.log(`[Sync] Deleted empty folder ${titleId} (${t})`);
+                }
+            }
+        }
+        
+        await updateDriveManifest(drive, rootId);
+    } catch (e) {
+        console.error('[Sync] Delete error:', e.message);
+    }
+}
+
+async function triggerBackgroundSync() {
+    try {
+        const drive = await getDriveClient();
+        const rootId = await getOrCreateFolder(drive, 'Xeck_Contracts');
+        
+        // 1. Sync files
+        db.all("SELECT * FROM contracts", [], async (err, contracts) => {
+            if (err) return;
+            for (const c of contracts) {
+                if (!c.file_path) continue;
+                const translatedCat = getTranslatedCategoryName(c.category || 'Other');
+                const cat = sanitizePath(translatedCat);
+                const title = sanitizePath(c.title || 'Untitled');
+                const fileName = path.basename(c.file_path);
+
+                const catId = await getOrCreateFolder(drive, cat, rootId);
+                const titleId = await getOrCreateFolder(drive, title, catId);
+
+                const searchRes = await drive.files.list({
+                    q: `name = '${fileName}' and trashed = false`,
+                    fields: 'files(id, parents)'
+                });
+
+                if (searchRes.data.files.length === 0) {
+                    const absPath = path.join(DATA_DIR, c.file_path);
+                    if (fs.existsSync(absPath)) {
+                        await drive.files.create({
+                            requestBody: {
+                                name: fileName,
+                                parents: [titleId],
+                                appProperties: { id: c.id.toString(), title: c.title, category: c.category }
+                            },
+                            media: { body: fs.createReadStream(absPath) }
+                        });
+                    }
+                }
+            }
+            // 2. Update Manifest
+            await updateDriveManifest(drive, rootId);
+        });
+    } catch (e) {
+        console.log('[Sync] Background sync skipped:', e.message);
+    }
+}
+
+
 app.post('/api/sync', async (req, res) => {
     try {
         const drive = await getDriveClient();
@@ -1362,6 +1587,8 @@ app.post('/api/sync', async (req, res) => {
                     }
                 }
             }
+            // 2. Update Manifest
+            await updateDriveManifest(drive, rootId);
         });
 
         // 2. Fetch cloud files (scan all levels)

@@ -1,6 +1,6 @@
 {
   "name": "xeck",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Xeck - Private Contract Manager",
   "main": "main.js",
   "repository": {
@@ -26,7 +26,10 @@
       }
     ],
     "win": {
-      "target": "portable",
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "build/icon.png",
       "artifactName": "${productName}.${ext}"
     },
