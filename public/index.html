@@ -1372,9 +1372,11 @@
             }
         }
 
+        let authPollInterval = null;
+
         async function selectLoginMode(mode) {
             localStorage.setItem('xeck_login_mode', mode);
-            // Also persist to backend settings
+            // Persist to backend settings
             try {
                 await fetch('/api/settings', {
                     method: 'POST',
@@ -1382,9 +1384,62 @@
                     body: JSON.stringify({ xeck_login_mode: mode })
                 });
             } catch(e) {}
-            
-            closeAllModals();
-            applyUserIdentity();
+
+            if (mode === 'google') {
+                try {
+                    const res = await fetch(`/api/auth/google/url?lang=${currentLang}`);
+                    const data = await res.json();
+                    if (data.url) {
+                        const authWin = window.open(data.url, '_blank');
+                        
+                        // --- POLLING FOR COMPLETION ---
+                        if (authPollInterval) clearInterval(authPollInterval);
+                        
+                        // Show visual feedback in modal
+                        const googleBtn = document.getElementById('opt-google');
+                        const originalHtml = googleBtn.innerHTML;
+                        googleBtn.style.opacity = '0.7';
+                        googleBtn.querySelector('p').innerText = 'Waiting for browser login...';
+                        googleBtn.querySelector('p').style.color = '#4285F4';
+                        googleBtn.querySelector('p').style.fontWeight = '700';
+
+                        authPollInterval = setInterval(async () => {
+                            try {
+                                const check = await fetch('/api/auth/status');
+                                const data = await check.json();
+                                if (data.authenticated) {
+                                    console.log('[Auth] Google login detected via polling.');
+                                    clearInterval(authPollInterval);
+                                    authPollInterval = null;
+                                    
+                                    googleBtn.innerHTML = originalHtml; // Restore UI
+                                    googleBtn.style.opacity = '1';
+                                    await applyUserIdentity(); 
+                                }
+                            } catch(e) { console.warn('[Auth] Polling error:', e); }
+                        }, 2000);
+
+                        // Stop polling after 5 minutes
+                        setTimeout(() => { 
+                            if(authPollInterval) {
+                                clearInterval(authPollInterval);
+                                googleBtn.innerHTML = originalHtml;
+                                googleBtn.style.opacity = '1';
+                            }
+                        }, 5 * 60 * 1000);
+
+                    } else {
+                        throw new Error(data.error);
+                    }
+                } catch(e) {
+                    alert('Google OAuth Error: ' + e.message);
+                    return;
+                }
+            } else {
+                // For 'local' mode, apply changes immediately
+                closeAllModals();
+                await applyUserIdentity();
+            }
         }
 
         async function applyUserIdentity() {
@@ -1394,92 +1449,109 @@
             const headNameEl = document.getElementById('headerName');
             const i18n = translations[currentLang];
 
-            document.getElementById('opt-local').classList.remove('active-mode');
-            document.getElementById('opt-google').classList.remove('active-mode');
-
+            // 1. Fetch current state from backend
             let hasAuth = false;
             let backendMode = null;
+            let profileName = '';
 
-            // Load saved settings
             try {
                 const res = await fetch('/api/settings');
                 const cfg = await res.json();
                 hasAuth = !!cfg.has_google_auth;
                 backendMode = cfg.xeck_login_mode;
+                profileName = cfg.profile_name || '';
 
-                if (cfg.profile_name) {
-                    nameEl.innerText = cfg.profile_name;
-                    headNameEl.innerText = cfg.profile_name;
-                    if(document.getElementById('profileNameInput')) document.getElementById('profileNameInput').value = cfg.profile_name;
-                } else {
-                    const n = currentLang === 'zh' ? '本地访客' : (currentLang === 'es' ? 'Invitado' : 'Guest');
-                    nameEl.innerText = n; headNameEl.innerText = n;
-                }
-
+                // Sync inputs if they exist (settings tab)
                 if (cfg.google_client_id && document.getElementById('googleClientIdInput'))
                     document.getElementById('googleClientIdInput').value = cfg.google_client_id;
                 if (cfg.google_client_secret && document.getElementById('googleClientSecretInput'))
                     document.getElementById('googleClientSecretInput').value = cfg.google_client_secret;
 
-            } catch(e) { console.error("Identity load error:", e); }
+            } catch(e) { console.error("[Identity] Load error:", e); }
 
-            // Determine effective mode: localStorage > backend > null
+            // 2. Determine effective mode: localStorage > backend > hasAuth ? 'google' : 'local'
             let mode = localStorage.getItem('xeck_login_mode') || backendMode;
+            
+            // Auto-promote to Google if authenticated but mode is unset (e.g. after fresh login)
+            if (!mode && hasAuth) mode = 'google';
+            if (!mode) mode = 'local'; // Final default
 
-            // If we have Google Auth but no mode is set, DEFAULT to google
-            if (!mode && hasAuth) {
-                mode = 'google';
-                localStorage.setItem('xeck_login_mode', 'google');
-            }
+            localStorage.setItem('xeck_login_mode', mode);
+
+            // 3. Update UI Elements
+            document.getElementById('opt-local').classList.remove('active-mode');
+            document.getElementById('opt-google').classList.remove('active-mode');
 
             if (mode === 'google') {
                 document.getElementById('opt-google').classList.add('active-mode');
                 avatarEl.innerText = 'G';
                 avatarEl.style.backgroundColor = '#4285F4';
-
+                
                 if (hasAuth) {
+                    const name = profileName || (currentLang === 'zh' ? '谷歌用户' : 'Google User');
+                    nameEl.innerText = name;
+                    headNameEl.innerText = name;
+                    emailEl.innerText = i18n.sync_cloud || 'Connected to Google Drive';
+                    emailEl.style.color = '#059669'; // Success green
+
+                    // Success state: clear polling and close modals
+                    if (authPollInterval) {
+                        clearInterval(authPollInterval);
+                        authPollInterval = null;
+                    }
+                    closeAllModals();
                     startDriveSync();
                 } else {
+                    const n = currentLang === 'zh' ? '待连接' : 'Connecting...';
+                    nameEl.innerText = n; headNameEl.innerText = n;
                     emailEl.innerHTML = `<span style="color:var(--text-secondary);">${i18n.sync_status || 'Waiting...'}</span> <a href="#" onclick="openLoginModal()" style="color:#4285F4;text-decoration:underline;font-size:0.65rem;margin-left:4px;">Login</a>`;
                 }
             } else {
+                // Local Mode
                 document.getElementById('opt-local').classList.add('active-mode');
-                emailEl.innerText = i18n.sync_local;
-                avatarEl.innerText = 'L'; avatarEl.style.backgroundColor = '#000000';
+                avatarEl.innerText = 'L';
+                avatarEl.style.backgroundColor = '#000000';
+                
+                // Ignore profile name if it came from Google auth
+                const n = (!hasAuth && profileName) ? profileName : (currentLang === 'zh' ? '本地访客' : (currentLang === 'es' ? 'Invitado' : 'Guest'));
+                nameEl.innerText = n;
+                headNameEl.innerText = n;
+                emailEl.innerText = i18n.sync_local || 'Local Storage Only';
+                emailEl.style.color = 'var(--text-secondary)';
             }
-            if (!localStorage.getItem('xeck_login_mode')) openLoginModal();
+            
+            // Initial prompt if totally fresh
+            if (!localStorage.getItem('xeck_login_mode') && !backendMode && !hasAuth) openLoginModal();
         }
 
-        window.addEventListener('focus', () => {
-            // applyUserIdentity manages the mode display
-        });
-
         async function startDriveSync() {
+            console.log('[Sync] Triggering Drive synchronization...');
             const emailEl = document.getElementById('profileEmail');
             const i18n = translations[currentLang];
-            try {
-                emailEl.innerText = i18n.sync_status || 'Syncing...';
-                emailEl.style.color = 'var(--text-secondary)';
+            
+            // Temporary visual feedback
+            const originalText = emailEl.innerText;
+            emailEl.innerText = i18n.sync_status || 'Syncing...';
+            emailEl.style.color = 'var(--text-secondary)';
 
+            try {
                 const res = await fetch('/api/sync', { method: 'POST' });
                 const data = await res.json();
                 if (data.success) {
-                    emailEl.innerText = i18n.sync_cloud || 'Cloud';
-                    emailEl.style.color = '#10B981';
+                    console.log('[Sync] Success:', data.message);
+                    emailEl.innerText = i18n.sync_cloud || 'Connected to Drive';
+                    emailEl.style.color = '#059669';
                 } else {
                     throw new Error(data.error || 'Unknown error');
                 }
-            } catch (e) {
-                let errorMsg = e.message.includes('Not authenticated') ? 'Auth Required' : (e.message.substring(0, 15) + '..');
-                
-                // Specific handling for API_DISABLED
-                if (e.message.includes('API_DISABLED') || e.message.includes('Google Drive API') || e.message.includes('403')) {
-                     emailEl.innerHTML = `<span style="color:#EF4444;">API Disabled</span> <a href="https://console.developers.google.com/apis/library/drive.googleapis.com" target="_blank" style="color:#4285F4;text-decoration:underline;font-size:0.65rem;margin-left:4px;">Enable</a>`;
-                     return;
-                }
-
-                emailEl.innerHTML = `<span style="color:#EF4444;">${i18n.sync_failed || 'Error'}: ${errorMsg}</span> <a href="#" onclick="startDriveSync()" style="color:#4285F4;text-decoration:underline;font-size:0.65rem;margin-left:4px;">Sync</a>`;
-                console.error('Sync error:', e);
+            } catch(e) {
+                console.error('[Sync] Failed:', e);
+                emailEl.innerText = i18n.sync_failed || 'Sync failed';
+                emailEl.style.color = '#EF4444';
+                setTimeout(() => {
+                    emailEl.innerText = i18n.sync_cloud || 'Connected to Drive';
+                    emailEl.style.color = '#059669';
+                }, 5000);
             }
         }
 
@@ -1519,27 +1591,11 @@
             } catch(e) { alert('Failed to save'); }
         }
 
-        async function selectLoginMode(mode) {
-            localStorage.setItem('xeck_login_mode', mode);
-            if (mode === 'google') {
-                try {
-                    const res = await fetch('/api/auth/google/url');
-                    const data = await res.json();
-                    if (data.url) {
-                        window.open(data.url, '_blank');
-                    } else {
-                        throw new Error(data.error);
-                    }
-                } catch(e) {
-                    alert('Google OAuth Error: ' + e.message);
-                    return;
-                }
-            }
-            closeAllModals();
-            await applyUserIdentity();
-        }
 
-        function logout() {
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+            } catch(e) { console.error('Logout error:', e); }
             localStorage.removeItem('xeck_login_mode');
             window.location.reload();
         }

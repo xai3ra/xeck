@@ -7,6 +7,9 @@ const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
 const { PDFParse } = require('pdf-parse');
+const { EventEmitter } = require('events');
+
+const authBus = new EventEmitter();
 
 const CATEGORY_I18N = {
     en: {
@@ -38,18 +41,21 @@ const { google } = require('googleapis');
 const app = express();
 const port = 3000;
 
-app.use(cors());
-app.use(express.static('public'));
-app.use('/uploads', express.static('uploads'));
-app.use('/Contracts', express.static('Contracts'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const DATA_DIR = process.env.XECK_DATA_DIR || __dirname;
+console.log(`[Server] Using Data Directory: ${DATA_DIR}`);
 
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const CONTRACTS_DIR = path.join(__dirname, 'Contracts');
+const CONTRACTS_DIR = path.join(DATA_DIR, 'Contracts');
 if (!fs.existsSync(CONTRACTS_DIR)) fs.mkdirSync(CONTRACTS_DIR, { recursive: true });
+
+app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(DATA_DIR, 'uploads')));
+app.use('/Contracts', express.static(path.join(DATA_DIR, 'Contracts')));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // --- Server-side state for translations ---
 let current_language = 'en';
@@ -70,7 +76,7 @@ function getTranslatedCategoryName(categoryKey, lang = current_language) {
     return langMap[key] || categoryKey;
 }
 
-const DB_FILE = path.join(__dirname, 'contracts.db');
+const DB_FILE = path.join(DATA_DIR, 'contracts.db');
 let db;
 
 function connectDB() {
@@ -97,6 +103,13 @@ function connectDB() {
                 key TEXT PRIMARY KEY,
                 value TEXT
             )`);
+
+            // --- AUTO-CONFIGURE GOOGLE OAUTH ---
+            const GOOGLE_CLIENT_ID = "72199376080-i9nv5ru4vcg0p9uvbvfssi8ej162lbii.apps.googleusercontent.com";
+            const GOOGLE_CLIENT_SECRET = "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";
+            
+            db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('google_client_id', ?)", [GOOGLE_CLIENT_ID]);
+            db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('google_client_secret', ?)", [GOOGLE_CLIENT_SECRET]);
 
             // Migrations for existing DBs
             const migrations = [
@@ -133,6 +146,12 @@ const importUpload = multer({ storage: multer.diskStorage({
 const analyzeUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 // 鈹€鈹€鈹€ SETTINGS API 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+app.get('/api/auth/status', (req, res) => {
+    db.get("SELECT 1 FROM settings WHERE key = 'google_tokens'", (err, row) => {
+        res.json({ authenticated: !!row });
+    });
+});
+
 app.get('/api/settings', (req, res) => {
     db.all(`SELECT key, value FROM settings`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -967,7 +986,7 @@ app.delete('/api/contracts/:id', (req, res) => {
             if (fs.existsSync(targetDir)) {
                 fs.rmSync(targetDir, { recursive: true, force: true });
             } else if (row.file_path) {
-                const absPath = path.join(__dirname, row.file_path);
+                const absPath = path.join(DATA_DIR, row.file_path);
                 if (fs.existsSync(absPath)) {
                     fs.unlinkSync(absPath); // legacy fallback
                 }
@@ -1000,7 +1019,7 @@ app.post('/api/import', importUpload.single('backup'), (req, res) => {
     db.close(err => {
         if (err) return res.status(500).json({ error: 'Failed to close DB' });
         try {
-            new AdmZip(req.file.path).extractAllTo(__dirname, true);
+            new AdmZip(req.file.path).extractAllTo(DATA_DIR, true);
             fs.unlinkSync(req.file.path);
             connectDB();
             res.json({ message: 'Backup imported!' });
@@ -1028,6 +1047,11 @@ const getRedirectUri = () => {
 };
 
 app.get('/api/auth/google/url', async (req, res) => {
+    const { lang } = req.query; // Get preferred language from frontend
+    if (lang) {
+        current_language = lang;
+        db.run("INSERT INTO settings (key, value) VALUES ('current_language', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [lang]);
+    }
     const { google_client_id, google_client_secret } = await getGoogleConfig();
     if (!google_client_id) {
         console.error('[OAuth] Missing Client ID in settings');
@@ -1037,7 +1061,9 @@ app.get('/api/auth/google/url', async (req, res) => {
     const client = new OAuth2Client(google_client_id, google_client_secret, getRedirectUri());
     const url = client.generateAuthUrl({
         access_type: 'offline',
-        prompt: 'select_account', // Force account selection to avoid session confusion
+        prompt: 'select_account',
+        state: lang || 'en', // Pass language state for callback localization
+        hl: lang || 'en', // Set Google UI language
         scope: [
             'https://www.googleapis.com/auth/userinfo.profile',
             'https://www.googleapis.com/auth/userinfo.email',
@@ -1047,40 +1073,147 @@ app.get('/api/auth/google/url', async (req, res) => {
     res.json({ url });
 });
 
+// Endpoint to trigger app focus exactly when the 3s countdown finishes
+app.post('/api/auth/finalize', (req, res) => {
+    console.log('[Auth] Finalizing: Triggering app-focus signal.');
+    authBus.emit('authenticated');
+    res.json({ success: true });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+    db.run("DELETE FROM settings WHERE key IN ('google_tokens', 'profile_name', 'xeck_login_mode')", (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
 app.get('/auth/callback', async (req, res) => {
-    const { code } = req.query;
+    const { code, state } = req.query; // state contains the language
+    const lang = state || 'en';
     const { google_client_id, google_client_secret } = await getGoogleConfig();
     try {
+        console.log('[OAuth] Callback received, exchanging code...');
         const client = new OAuth2Client(google_client_id, google_client_secret, getRedirectUri());
         
-        // Setup listener for tokens (including potential future refreshes)
-        client.on('tokens', (newTokens) => {
-            console.log('[OAuth] Tokens updated (callback/refresh), saving to DB...');
-            db.get("SELECT value FROM settings WHERE key = 'google_tokens'", (err, row) => {
-                let existing = {};
-                if (row) try { existing = JSON.parse(row.value); } catch(e) {}
-                const updated = { ...existing, ...newTokens };
-                db.run("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", ['google_tokens', JSON.stringify(updated)]);
+        const { tokens } = await client.getToken(code);
+        client.setCredentials(tokens);
+        
+        // 1. Verify ID Token & Get User Info
+        let googleName = '';
+        try {
+            const ticket = await client.verifyIdToken({
+                idToken: tokens.id_token,
+                audience: google_client_id
+            });
+            const payload = ticket.getPayload();
+            googleName = payload.name;
+            console.log('[OAuth] Authenticated as:', payload.email);
+        } catch(err) {
+            console.warn('[OAuth] Failed to verify ID token:', err.message);
+        }
+
+        // 2. Explicitly save tokens and profile name to DB
+        console.log('[OAuth] Saving tokens and metadata to DB...');
+        await new Promise((resolve, reject) => {
+            db.serialize(() => {
+                // Save tokens
+                db.get("SELECT value FROM settings WHERE key = 'google_tokens'", (err, row) => {
+                    let existing = {};
+                    if (row) try { existing = JSON.parse(row.value); } catch(e) {}
+                    const updated = { ...existing, ...tokens };
+                    db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('google_tokens', ?)", [JSON.stringify(updated)]);
+                });
+
+                // Auto-fill profile name if not set
+                if (googleName) {
+                    db.get("SELECT value FROM settings WHERE key = 'profile_name'", (err, row) => {
+                        if (!row || !row.value) {
+                            console.log('[OAuth] Setting profile name to:', googleName);
+                            db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('profile_name', ?)", [googleName]);
+                        }
+                    });
+                }
+
+                // Set default mode to google since user just authenticated
+                db.run("INSERT OR REPLACE INTO settings (key, value) VALUES ('xeck_login_mode', 'google')");
+                
+                // Finalize sequence
+                db.run("SELECT 1", (err) => {
+                    if (err) reject(err);
+                    else {
+                        // We no longer emit authenticated here immediately.
+                        // Instead, we wait for the browser countdown to call /api/auth/finalize
+                        // so the focus happens synchronized with the transition.
+                        resolve();
+                    }
+                });
             });
         });
 
-        const { tokens } = await client.getToken(code);
-        client.setCredentials(tokens);
-        console.log('[OAuth] Initial tokens received and set');
+        // UI Translations for Success Page
+        const translations = {
+            en: { title: "Authentication Successful!", sub: "Google Drive has been successfully connected to Xeck.", close: "Close Tab Now", redirecting: "Redirecting" },
+            zh: { title: "鉴权成功！", sub: "谷歌网盘已成功连接到 Xeck。", close: "立即关闭", redirecting: "正在跳转" },
+            es: { title: "¡Autenticación Exitosa!", sub: "Google Drive se ha conectado correctamente a Xeck.", close: "Cerrar pestaña", redirecting: "Redirigiendo" }
+        };
+        const t = translations[lang] || translations.en;
 
-        const ticket = await client.verifyIdToken({
-            idToken: tokens.id_token,
-            audience: google_client_id
-        });
-        const payload = ticket.getPayload();
-        
         res.send(`
+            <!DOCTYPE html>
             <html>
-                <body style="font-family: sans-serif; text-align: center; padding-top: 50px;">
-                    <h2 style="color: #10B981;">Authentication Successful!</h2>
-                    <p>You may now close this browser window and return to Xeck.</p>
-                    <script>setTimeout(() => window.close(), 2000);</script>
-                </body>
+            <head>
+                <meta charset="UTF-8">
+                <title>Xeck - ${t.title}</title>
+                <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+                <style>
+                    body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; color: #111111; }
+                    .card { background: white; padding: 3rem; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; max-width: 420px; border: 2px solid #EEEEEE; animation: slideUp 0.5s ease-out; }
+                    @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                    .icon { width: 72px; height: 72px; background: #10B981; color: white; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin: 0 auto 1.5rem; font-size: 36px; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
+                    h2 { font-weight: 700; margin-bottom: 0.75rem; font-size: 1.5rem; }
+                    p { color: #4B5563; line-height: 1.6; margin-bottom: 2.5rem; font-size: 0.9375rem; }
+                    .countdown { font-size: 0.8125rem; color: #9CA3AF; margin-top: 2.5rem; border-top: 1px solid #F3F4F6; padding-top: 1.5rem; }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div class="icon">✓</div>
+                    <h2>${t.title}</h2>
+                    <p>${t.sub}</p>
+                    <div class="countdown" id="cd-text">${t.redirecting}: <span id="sec">3</span>s...</div>
+                </div>
+                <script>
+                    let s = 3;
+                    const el = document.getElementById('sec');
+                    
+                    const finishFlow = async () => {
+                        console.log("Triggering finalize and cleanup...");
+                        
+                        // 1. Tell the App to jump into foreground
+                        try {
+                            // Using fetch with keepalive or sendBeacon to ensure it goes out
+                            navigator.sendBeacon('/api/auth/finalize');
+                        } catch(e) {}
+
+                        // 2. Try to close the tab
+                        window.close();
+
+                        // 3. Fallback: definitely go blank
+                        setTimeout(() => {
+                            window.location.href = 'about:blank';
+                        }, 200);
+                    };
+
+                    const timer = setInterval(() => {
+                        s--;
+                        if (el) el.innerText = s;
+                        if (s <= 0) {
+                            clearInterval(timer);
+                            finishFlow();
+                        }
+                    }, 1000);
+                </script>
+            </body>
             </html>
         `);
     } catch (e) {
@@ -1214,7 +1347,7 @@ app.post('/api/sync', async (req, res) => {
                     }
                 } else {
                     // Upload new file
-                    const absPath = path.join(__dirname, c.file_path);
+                    const absPath = path.join(DATA_DIR, c.file_path);
                     if (fs.existsSync(absPath)) {
                         console.log(`[Sync] Uploading ${fileName} to Drive at ${cat}/${title}...`);
                         await drive.files.create({
@@ -1274,5 +1407,5 @@ const server = app.listen(0, async () => {
 });
 
 // For Electron integration if required as a module
-module.exports = { app, server };
+module.exports = { app, server, authBus };
 

@@ -5,17 +5,15 @@
   "main": "main.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YOUR_USERNAME/xeck.git"
-  },
-  "directories": {
-    "lib": "lib",
-    "test": "test"
+    "url": "https://github.com/xai3ra/xeck.git"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
     "electron": "electron .",
-    "dist": "electron-builder -w"
+    "dist": "electron-builder -w",
+    "clean": "rd /s /q release",
+    "postinstall": "electron-builder install-app-deps"
   },
   "build": {
     "appId": "com.xeck.app",
@@ -23,14 +21,16 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "YOUR_USERNAME",
+        "owner": "xai3ra",
         "repo": "xeck"
       }
     ],
     "win": {
       "target": "portable",
-      "icon": "public/favicon.ico"
+      "icon": "build/icon.png",
+      "artifactName": "${productName}.${ext}"
     },
+    "asar": true,
     "files": [
       "**/*",
       "!Contracts/**/*",
@@ -55,10 +55,10 @@
     "multer": "^2.1.1",
     "pdf-parse": "^2.4.5",
     "playwright": "^1.58.2",
-    "sqlite3": "^6.0.1"
+    "sqlite3": "5.1.6"
   },
   "devDependencies": {
-    "electron": "^41.0.2",
+    "electron": "^28.2.0",
     "electron-builder": "^24.13.3"
   }
 }

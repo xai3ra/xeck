@@ -1,7 +1,44 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, Menu, shell } = require('electron');
+Menu.setApplicationMenu(null);
 const path = require('path');
+
+// Set data directory to a writable location for the packaged app
+// This must be set BEFORE requiring ./server
+process.env.XECK_DATA_DIR = app.getPath('userData');
+
+// Polyfill for DOMMatrix which is missing in Node context but required by some dependencies
+if (typeof global.DOMMatrix === 'undefined') {
+  global.DOMMatrix = class DOMMatrix {
+    constructor() {
+      this.m11 = 1; this.m12 = 0; this.m13 = 0; this.m14 = 0;
+      this.m21 = 0; this.m22 = 1; this.m23 = 0; this.m24 = 0;
+      this.m31 = 0; this.m32 = 0; this.m33 = 1; this.m34 = 0;
+      this.m41 = 0; this.m42 = 0; this.m43 = 0; this.m44 = 1;
+    }
+  };
+}
 const { autoUpdater } = require('electron-updater');
-const { server } = require('./server');
+const { server, authBus } = require('./server');
+
+// Focus application when authentication succeeds
+if (authBus) {
+  authBus.on('authenticated', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.setVisibleOnAllWorkspaces(true); // Jump workspaces if needed
+      mainWindow.setAlwaysOnTop(true);
+      mainWindow.show();
+      mainWindow.focus();
+      // Brief delay before removing AlwaysOnTop to ensure OS grants focus
+      setTimeout(() => {
+        if (mainWindow) {
+            mainWindow.setAlwaysOnTop(false);
+            mainWindow.setVisibleOnAllWorkspaces(false);
+        }
+      }, 500);
+    }
+  });
+}
 
 let mainWindow;
 
@@ -17,6 +54,15 @@ function createWindow(port) {
       nodeIntegration: false,
       contextIsolation: true
     }
+  });
+
+  // Open Google OAuth in system browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://accounts.google.com/')) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
   });
 
   mainWindow.loadURL(`http://localhost:${port}`);
