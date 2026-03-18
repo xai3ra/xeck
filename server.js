@@ -11,6 +11,8 @@ const { EventEmitter } = require('events');
 
 const authBus = new EventEmitter();
 const updateBus = new EventEmitter();
+let updateProgress = { percent: 0, bytesPerSecond: 0, transferred: 0, total: 0, status: 'idle' };
+
 
 const CATEGORY_I18N = {
     en: {
@@ -1137,17 +1139,17 @@ async function getOrCreateFolder(drive, folderName, parentId = null) {
 
 app.get('/api/check-updates', (req, res) => {
     console.log('[API] Check for updates requested');
+    updateProgress = { percent: 0, bytesPerSecond: 0, transferred: 0, total: 0, status: 'checking' };
     updateBus.emit('check-update', (result) => {
         res.json(result);
     });
 });
 
-app.get('/api/check-updates', (req, res) => {
-    console.log('[API] Check for updates requested');
-    updateBus.emit('check-update', (result) => {
-        res.json(result);
-    });
+app.get('/api/update-progress', (req, res) => {
+    res.json(updateProgress);
 });
+
+
 
 async function updateDriveManifest(drive, rootId) {
     return new Promise((resolve, reject) => {
@@ -1489,5 +1491,9 @@ const server = app.listen(0, async () => {
 });
 
 // For Electron integration if required as a module
-module.exports = { app, server, authBus, updateBus };
+const setUpdateProgress = (prog) => {
+    updateProgress = { ...updateProgress, ...prog };
+};
+module.exports = { app, server, authBus, updateBus, setUpdateProgress };
+
 

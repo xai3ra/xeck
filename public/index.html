@@ -926,6 +926,17 @@
                         <span data-i18n="btn_check_update">Check for Updates</span>
                     </button>
                     <p id="updateCheckMsg" style="font-size:0.75rem; color:var(--text-secondary); display:none;"></p>
+                    <div id="updateProgressContainer" style="display:none; margin-top:1rem; padding:1rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:8px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                            <span id="updateStatusText" style="font-size:0.75rem; font-weight:600;">Downloading...</span>
+                            <span id="updatePercentText" style="font-size:0.75rem; font-weight:700;">0%</span>
+                        </div>
+                        <div style="height:8px; background:#EEEEEE; border-radius:4px; overflow:hidden;">
+                            <div id="updateProgressBar" style="height:100%; width:0%; background:#10B981; transition:width 0.3s ease;"></div>
+                        </div>
+                        <p id="updateDownloadDetail" style="font-size:0.625rem; color:var(--text-tertiary); margin-top:0.5rem;"></p>
+                    </div>
+
                 </div>
             </div>
 
@@ -1489,6 +1500,8 @@
                 if (data.updateAvailable) {
                     msg.innerText = i18n.msg_update_available;
                     msg.style.color = '#059669';
+                    // Start polling for progress since the native dialog will be shown
+                    startUpdateProgressPolling();
                 } else if (data.error) {
                     msg.innerText = "Error: " + data.error;
                     msg.style.color = '#EF4444';
@@ -1504,6 +1517,37 @@
                 btn.disabled = false;
             }
         }
+
+        let updatePollingInterval = null;
+        function startUpdateProgressPolling() {
+            if (updatePollingInterval) return;
+            updatePollingInterval = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/update-progress');
+                    const data = await res.json();
+                    
+                    if (data.status === 'downloading' || data.status === 'ready') {
+                        document.getElementById('updateProgressContainer').style.display = 'block';
+                        document.getElementById('updateProgressBar').style.width = data.percent + '%';
+                        document.getElementById('updatePercentText').innerText = data.percent + '%';
+                        
+                        if (data.status === 'ready') {
+                            document.getElementById('updateStatusText').innerText = "Update Ready";
+                            document.getElementById('updateDownloadDetail').innerText = "Restart the app to apply the update.";
+                            clearInterval(updatePollingInterval);
+                            updatePollingInterval = null;
+                        } else {
+                            document.getElementById('updateStatusText').innerText = "Downloading...";
+                            const mb = (m) => (m / (1024 * 1024)).toFixed(1) + 'MB';
+                            document.getElementById('updateDownloadDetail').innerText = `${mb(data.transferred)} / ${mb(data.total)} · ${(data.bytesPerSecond / 1024 / 1024).toFixed(1)} MB/s`;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Progress poll error:', e);
+                }
+            }, 1000);
+        }
+
 
         async function applyUserIdentity() {
             const nameEl = document.getElementById('profileName');

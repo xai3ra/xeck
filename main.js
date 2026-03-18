@@ -18,7 +18,7 @@ if (typeof global.DOMMatrix === 'undefined') {
   };
 }
 const { autoUpdater } = require('electron-updater');
-const { server, authBus, updateBus } = require('./server');
+const { server, authBus, updateBus, setUpdateProgress } = require('./server');
 
 // Handle manual update check from UI
 if (updateBus) {
@@ -107,10 +107,22 @@ autoUpdater.on('update-available', (info) => {
     buttons: ['Yes', 'Later']
   }).then(result => {
     if (result.response === 0) {
+      setUpdateProgress({ status: 'downloading', percent: 0 });
       autoUpdater.downloadUpdate();
     }
   });
 });
+
+autoUpdater.on('download-progress', (progressObj) => {
+  setUpdateProgress({
+    status: 'downloading',
+    percent: Math.floor(progressObj.percent),
+    bytesPerSecond: progressObj.bytesPerSecond,
+    transferred: progressObj.transferred,
+    total: progressObj.total
+  });
+});
+
 
 autoUpdater.on('update-downloaded', (info) => {
   dialog.showMessageBox({
@@ -123,11 +135,15 @@ autoUpdater.on('update-downloaded', (info) => {
       autoUpdater.quitAndInstall();
     }
   });
+  setUpdateProgress({ status: 'ready', percent: 100 });
 });
+
 
 autoUpdater.on('error', (err) => {
   console.error('Auto-update error:', err);
+  setUpdateProgress({ status: 'error', error: err.message });
 });
+
 
 app.on('ready', () => {
   // The server auto-starts on port 0 in server.js
