@@ -1244,7 +1244,7 @@
                 set_account_storage: "Account / Storage",
                 id_google_user: "Google User", id_connecting: "Connecting...", id_local_guest: "Guest",
                 pl_title: "e.g. Movistar Fiber 1GB",
-                btn_ok: "OK", btn_confirm: "Confirm"
+                btn_ok: "OK", btn_cancel: "Cancel"
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
@@ -1299,7 +1299,7 @@
                 set_account_storage: "Cuenta / Almacenamiento",
                 id_google_user: "Usuario Google", id_connecting: "Conectando...", id_local_guest: "Invitado",
                 pl_title: "p. ej. Fibra Movistar 1GB",
-                btn_ok: "Aceptar", btn_confirm: "Confirmar"
+                btn_ok: "Aceptar", btn_cancel: "Cancelar"
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
@@ -1355,7 +1355,7 @@
                 btn_logout: "退出登录 / 切换账号",
                 id_google_user: "谷歌用户", id_connecting: "待连接", id_local_guest: "本地访客",
                 pl_title: "例如：中国移动宽带 1000M",
-                btn_ok: "好的", btn_confirm: "确定"
+                btn_ok: "确定", btn_cancel: "取消"
             }
         };
 
@@ -1471,11 +1471,14 @@
 
                 msgEl.innerText = message;
                 overlay.style.display = 'flex';
+                
+                // Explicitly set both displays to avoid inheritance issues
+                okBtn.style.display = 'block';
                 cancelBtn.style.display = (type === 'confirm') ? 'block' : 'none';
                 
-                // Set button text explicitly to ensure localization
+                // Set button text explicitly from translations
                 okBtn.innerText = i18n.btn_ok || 'OK';
-                cancelBtn.innerText = i18n.btn_confirm || 'Confirm';
+                cancelBtn.innerText = i18n.btn_cancel || 'Cancel';
 
                 const close = (res) => {
                     overlay.style.display = 'none';
