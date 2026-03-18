@@ -14,16 +14,16 @@ const updateBus = new EventEmitter();
 
 const CATEGORY_I18N = {
     en: {
-        cat_utilities: "Utilities", cat_insurance: "Insurance", cat_mobile: "Mobile",
-        cat_subscription: "Subscription", cat_internet: "Internet", cat_other: "Other"
+        cat_utilities: "Services", cat_insurance: "Insurance", cat_mobile: "Mobile",
+        cat_subscription: "Subscription", cat_internet: "Internet", cat_other: "Other", cat_docs: "Documentation"
     },
     es: {
         cat_utilities: "Servicios", cat_insurance: "Seguros", cat_mobile: "Móvil",
-        cat_subscription: "Suscripción", cat_internet: "Internet", cat_other: "Otro"
+        cat_subscription: "Suscripción", cat_internet: "Internet", cat_other: "Otro", cat_docs: "Documentación"
     },
     zh: {
         cat_utilities: "水电煤", cat_insurance: "保险", cat_mobile: "通信",
-        cat_subscription: "订阅", cat_internet: "宽带", cat_other: "其他"
+        cat_subscription: "订阅", cat_internet: "宽带", cat_other: "其他", cat_docs: "证件"
     }
 };
 
@@ -143,7 +143,7 @@ const importUpload = multer({ storage: multer.diskStorage({
     filename: (req, file, cb) => cb(null, 'imported_backup.zip')
 })});
 
-// Multer for AI analysis (keep in memory, max 20MB)
+// Multer for AI analysis (keep in memory, max 20MB per file, max 10 files)
 const analyzeUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 // 鈹€鈹€鈹€ SETTINGS API 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
@@ -426,7 +426,6 @@ IMPORTANT:
                     const d = await r.json();
                     resultText = d.choices?.[0]?.message?.content || '';
                 }
-
                 res.json({ advice: resultText });
             } catch (err) {
                 res.status(500).json({ error: err.message });
@@ -435,11 +434,10 @@ IMPORTANT:
     });
 });
 
-// 鈹€鈹€鈹€ AI CONTRACT ANALYSIS 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-app.post('/api/analyze-contract', analyzeUpload.single('document'), async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: 'No file provided' });
+// ─── AI CONTRACT ANALYSIS ────────────────────────────────────────────────────────────
+app.post('/api/analyze-contract', analyzeUpload.array('document', 10), async (req, res) => {
+    if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files provided' });
 
-    // Load settings
     db.all(`SELECT key, value FROM settings`, [], async (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         const cfg = {};
@@ -450,404 +448,135 @@ app.post('/api/analyze-contract', analyzeUpload.single('document'), async (req, 
         const aiModel = cfg.ai_model || '';
 
         if (!provider || !apiKey) {
-            return res.status(400).json({ error: 'No AI provider configured. Go to Settings to add one.' });
+            return res.status(400).json({ error: 'No AI provider configured.' });
         }
 
-        const fileBase64 = req.file.buffer.toString('base64');
-        const mimeType = req.file.mimetype || 'application/pdf';
-        const isPdf = mimeType === 'application/pdf' || (req.file.originalname && req.file.originalname.toLowerCase().endsWith('.pdf'));
-        let extractedText = '';
-
-        if (isPdf) {
-            let parser = null;
-            try {
-                parser = new PDFParse({ data: req.file.buffer });
-                const pdfData = await parser.getText();
-                // Sanitize: remove backslashes and invalid Unicode escape sequences that break JSON later
-                extractedText = (pdfData.text || '')
-                    .replace(/\\/g, ' ')       // remove backslashes
-                    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')  // remove control chars
-                    .replace(/\uFFFD/g, '?');   // replace replacement chars
-            } catch (err) {
-                console.error('PDF parsing error:', err);
-            } finally {
-                if (parser) await parser.destroy();
+        let combinedText = '';
+        const visualParts = []; 
+        
+        for (const file of req.files) {
+            const fileBase64 = file.buffer.toString('base64');
+            const mimeType = file.mimetype || 'application/pdf';
+            const isPdf = mimeType === 'application/pdf' || (file.originalname && file.originalname.toLowerCase().endsWith('.pdf'));
+            
+            if (isPdf) {
+                let parser = null;
+                try {
+                    parser = new PDFParse({ data: file.buffer });
+                    const pdfData = await parser.getText();
+                    const text = (pdfData.text || '')
+                        .replace(/\\/g, ' ')
+                        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, ' ')
+                        .replace(/\uFFFD/g, '?');
+                    combinedText += `\n--- SOURCE: ${file.originalname} ---\n${text}\n`;
+                } catch (err) {
+                    console.error(`PDF error for ${file.originalname}:`, err);
+                } finally {
+                    if (parser) await parser.destroy();
+                }
+                visualParts.push({ type: 'pdf', mimeType, data: fileBase64, name: file.originalname });
+            } else {
+                visualParts.push({ type: 'image', mimeType, data: fileBase64, name: file.originalname });
             }
         }
-
-        if (isPdf && extractedText.trim().length < 20 && (provider === 'nvidia' || provider === 'openai')) {
-            return res.status(400).json({ error: 'This PDF appears to be a scanned image (no readable text). The selected AI model (NVIDIA/OpenAI) requires text-based PDFs or direct Image uploads (JPG/PNG). Please convert to an image or try Gemini/Claude.' });
+        
+        const extractedText = combinedText.trim();
+        if (extractedText.length < 20 && visualParts.length === 0) {
+            return res.status(400).json({ error: 'No readable content found.' });
         }
 
         const userLang = req.body.lang || 'en';
         const notesLang = { 'en': 'English', 'es': 'Spanish', 'zh': 'Chinese' }[userLang] || 'English';
 
-        // Pre-extract key facts from the full text using regex
         let keyFacts = '';
-        let regexDates = [];
         if (extractedText) {
             const fullText = extractedText;
-
-            // Extract all dates in common formats
-            regexDates = fullText.match(/\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2} de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) de \d{4}/gi) || [];
-
-            // Extract all monetary values
-            const moneyMatches = fullText.match(/[\d][\d.,]*\s*(?:€|EUR|USD|GBP)|(?:€|EUR|USD|GBP|\$|£)\s*[\d][\d.,]*/g) || [];
-
-            // Extract lines containing key financial/date keywords
-            const keyLines = fullText.split('\n')
-                .filter(l => /válida|hasta|desde|vigencia|prima|total|precio|fecha|inicio|fin|renovaci|period|anual|trimest|mensual|efecto|cobertura|vencimiento/i.test(l))
-                .map(l => l.trim())
-                .filter(l => l.length > 5)
-                .slice(0, 30);
-
-            keyFacts = `KEY EXTRACTED FACTS FROM DOCUMENT:
-Dates found (in order of appearance): ${[...new Set(regexDates)].join(', ') || 'none'}
-Amounts found: ${[...new Set(moneyMatches)].join(', ') || 'none'}
-Key lines:
-${keyLines.join('\n')}
----`;
+            const dates = fullText.match(/\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2} de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) de \d{4}/gi) || [];
+            const money = fullText.match(/[\d][\d.,]*\s*(?:€|EUR|USD|GBP)|(?:€|EUR|USD|GBP|\$|£)\s*[\d][\d.,]*/g) || [];
+            const lines = fullText.split('\n').filter(l => /válida|hasta|desde|vigencia|prima|total|precio|fecha|inicio|fin|renovaci|period|anual/i.test(l)).slice(0, 20);
+            keyFacts = `KEY FACTS: Dates: ${[...new Set(dates)].join(', ')} | Amounts: ${[...new Set(money)].join(', ')} | Lines: ${lines.join('; ')}`;
         }
 
-        // ─── LLM reads the whole document, labels what it finds — Code does the math ─
-        const intelligentPrompt = `You are an expert contract analyst. Read the ENTIRE document carefully, understand its structure, then return ONLY valid JSON — no markdown, no explanation.
+        const prompt = `You are a contract analyst. Return ONLY valid JSON. 
+Translate everything into ${notesLang}. "notes" should be a bulleted list covering Provider, Coverage, Cost, Duration.
 
-⚠️ RULE 1: TRANSLATION & FLUENCY (NON-NEGOTIABLE)
-1. FIRST, analyze the document in its ORIGINAL native language to ensure extreme accuracy and prevent hallucination.
-2. THEN, translate your final findings for the "notes", "title", "category", and "billing_cycle" fields into exactly this language: ${notesLang}.
-3. The "notes" field MUST be written in highly fluent, natural, and professional ${notesLang}.
-   - If ${notesLang} is Chinese, use standard modern vocabulary (e.g., use "提供商" instead of "供府", "服务内容" instead of "互务资料").
-   - DO NOT hallucinate, do not invent weird terminology, and DO NOT use broken characters or strange punctuation (like ‰).
-4. Format the "notes" strictly as a bulleted list (-) covering: Provider Name, Coverage/Service Details, Cost Summary, and Duration.
+Fields: title, category (Utilities, Insurance, Mobile, Internet, Subscription, Documentation, Other), billing_cycle (Monthly, Annual, Quarterly), _cost_value (number), _cost_nature ("monthly", "quarterly", "annual", "total_over_N"), start_date, contract_end_date, permanencia_end_date (DD/MM/YYYY), notes.
 
-── STEP 1: Understand the document ──
-Read everything. What is this contract? Who is the provider? What does it cost and how?
+Context Facts: ${keyFacts}
 
-── STEP 2: Extract the cost ──
-A document may contain MANY numbers. Your task: find the ONE number that is the actual contract cost the customer pays, and label what kind of amount it is.
-
-Return two cost fields:
-- "_cost_value": Copy the number EXACTLY from the document (e.g. 1841.78). Do NOT round or modify it.
-- "_cost_nature": A label telling us what kind of amount _cost_value is. Use EXACTLY one of:
-    "monthly"         -> _cost_value is already a per-month charge (e.g. "29.99 EUR/mes", "15 USD/month")
-    "quarterly"       -> _cost_value is a per-quarter charge (e.g. "89.97 EUR/trimestre")
-    "annual"          -> _cost_value is a 12-month total (e.g. "720 EUR/ano", "annual fee 720 EUR")
-    "total_over_N"    -> _cost_value is a lump sum covering N months (replace N with the actual integer)
-                         Examples: "1841.78 EUR for 3 years" -> "total_over_36"
-                                   "500 EUR for 2 years"     -> "total_over_24"
-                                   "200 EUR for 6 months"    -> "total_over_6"
-
-  DECISION RULES (apply in order, use first match):
-  1. Document shows a clear monthly unit price (EUR/mes, /month, mensual) -> use it, nature="monthly"
-  2. Document shows a clear quarterly price -> use it, nature="quarterly"
-  3. Document shows an annual price (precio anual, /ano, anual, yearly) -> use it, nature="annual"
-  4. Document shows a multi-year lump sum (prima unica, total N anos, one-time for N years) -> use that total, nature="total_over_[months]"
-  5. Document shows BOTH a monthly rate AND an annual/lump-sum total -> prefer the monthly rate, nature="monthly"
-  6. No clear price found -> set _cost_value=0, nature="monthly"
-
-── STEP 3: Extract all other fields ──
-- title: Short name max 40 chars. Format "Provider ServiceType". NEVER leave blank.
-- category: One of: Utilities, Insurance, Mobile, Internet, Subscription, Other
-- billing_cycle: How often the customer actually gets invoiced: "Monthly", "Annual", or "Quarterly"
-- start_date: The contract START date (the earliest/first date). Look for: "valida desde", "efecto", "inicio", "desde el". Use DD/MM/YYYY format.
-- contract_end_date: The contract EXPIRY date (the latest/last date). Look for: "vencimiento", "valida hasta", "hasta el", "fin". Use DD/MM/YYYY format.
-  RULE: start_date MUST be strictly earlier than contract_end_date. They can NEVER be the same date.
-  DATE FORMAT RULE: Always output dates as DD/MM/YYYY (e.g. "06/08/2025" for 6th of August 2025).
-- permanencia_end_date: Lock-in period end date in DD/MM/YYYY format. Use empty string "" if not applicable.
-- notes: Write ONLY in ${notesLang}. Include: provider name, what is covered/provided, cost summary, contract duration, key highlights.
-
-${keyFacts}
-
-Return ONLY this JSON object, nothing else before or after it:
-{"title":"","category":"","billing_cycle":"","_cost_value":0,"_cost_nature":"monthly","start_date":"","contract_end_date":"","permanencia_end_date":"","notes":""}
-
-Full document text:
-${extractedText ? extractedText : '(no text extracted)'}`;
-
-
+JSON: {"title":"","category":"","billing_cycle":"","_cost_value":0,"_cost_nature":"monthly","start_date":"","contract_end_date":"","permanencia_end_date":"","notes":""}`;
 
         try {
-            let result;
-
+            let result = '';
             if (provider === 'openai') {
-                const contentArr = [{ type: 'text', text: intelligentPrompt }];
-                if (!isPdf && !extractedText) {
-                    contentArr.push({ type: 'image_url', image_url: { url: `data:${mimeType};base64,${fileBase64}` } });
-                }
-                const body = {
-                    model: aiModel || 'gpt-4o',
-                    messages: [{ role: 'user', content: contentArr }],
-                    max_tokens: 1800
-                };
+                const contentArr = [{ type: 'text', text: prompt }];
+                visualParts.forEach(p => { if (p.type === 'image') contentArr.push({ type: 'image_url', image_url: { url: `data:${p.mimeType};base64,${p.data}` } }); });
                 const r = await fetch('https://api.openai.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify(body)
+                    body: JSON.stringify({ model: aiModel || 'gpt-4o', messages: [{ role: 'user', content: contentArr }] })
                 });
                 const data = await r.json();
-                if (!r.ok) return res.status(502).json({ error: data.error?.message || 'OpenAI error' });
-                result = data.choices[0].message.content;
-
+                result = data.choices?.[0]?.message?.content || '';
             } else if (provider === 'gemini') {
-                const modelId = aiModel || 'gemini-2.0-flash';
-                const partsArr = [{ text: intelligentPrompt }];
-                // Gemini can handle both PDF binary AND image data natively — always send the file
-                partsArr.push({ inline_data: { mime_type: mimeType, data: fileBase64 } });
-                const body = { contents: [{ parts: partsArr }] };
-                const r = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`,
-                    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
-                );
+                const partsArr = [{ text: prompt }];
+                visualParts.forEach(p => { partsArr.push({ inline_data: { mime_type: p.mimeType, data: p.data } }); });
+                const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel || 'gemini-2.0-flash'}:generateContent?key=${apiKey}`, { method: 'POST', body: JSON.stringify({ contents: [{ parts: partsArr }] }) });
                 const data = await r.json();
-                if (!r.ok) return res.status(502).json({ error: data.error?.message || 'Gemini error' });
                 result = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
             } else if (provider === 'claude') {
-                const contentArr = [{ type: 'text', text: intelligentPrompt }];
-                if (!extractedText && mimeType === 'application/pdf') {
-                    contentArr.push({ type: 'document', source: { type: 'base64', media_type: mimeType, data: fileBase64 } });
-                } else if (!extractedText) {
-                    contentArr.push({ type: 'image', source: { type: 'base64', media_type: mimeType, data: fileBase64 } });
-                }
-                const body = {
-                    model: aiModel || 'claude-3-5-sonnet-20241022',
-                    max_tokens: 1800,
-                    messages: [{ role: 'user', content: contentArr }]
-                };
+                const contentArr = [{ type: 'text', text: prompt }];
+                visualParts.forEach(p => { 
+                    if (p.type === 'pdf') contentArr.push({ type: 'document', source: { type: 'base64', media_type: p.mimeType, data: p.data } });
+                    else contentArr.push({ type: 'image', source: { type: 'base64', media_type: p.mimeType, data: p.data } });
+                });
                 const r = await fetch('https://api.anthropic.com/v1/messages', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-key': apiKey,
-                        'anthropic-version': '2023-06-01'
-                    },
-                    body: JSON.stringify(body)
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+                    body: JSON.stringify({ model: aiModel || 'claude-3-5-sonnet-20241022', max_tokens: 1800, messages: [{ role: 'user', content: contentArr }] })
                 });
                 const data = await r.json();
-                if (!r.ok) return res.status(502).json({ error: data.error?.message || 'Claude error' });
                 result = data.content?.[0]?.text || '';
-
             } else if (provider === 'nvidia') {
-                const contentArr = [{ type: 'text', text: intelligentPrompt }];
-                if (!isPdf && !extractedText) {
-                    contentArr.push({ type: 'image_url', image_url: { url: `data:${mimeType};base64,${fileBase64}` } });
-                }
-                const body = {
-                    model: aiModel || 'meta/llama-3.2-90b-vision-instruct',
-                    messages: [{ role: 'user', content: contentArr }],
-                    max_tokens: 1800
-                };
+                const contentArr = [{ type: 'text', text: prompt }];
+                visualParts.forEach(p => { if (p.type === 'image') contentArr.push({ type: 'image_url', image_url: { url: `data:${p.mimeType};base64,${p.data}` } }); });
                 const r = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify(body)
+                    body: JSON.stringify({ model: aiModel || 'meta/llama-3.2-90b-vision-instruct', messages: [{ role: 'user', content: contentArr }] })
                 });
                 const data = await r.json();
-                if (!r.ok) {
-                    console.error('NVIDIA API Response Error:', JSON.stringify(data, null, 2));
-                    return res.status(502).json({ error: data.error?.message || 'NVIDIA error' });
-                }
                 result = data.choices?.[0]?.message?.content || '';
-
-            } else {
-                return res.status(400).json({ error: 'Unknown provider: ' + provider });
             }
 
-            console.log('--- RAW LLM RESULT START ---');
-            console.log(result);
-            console.log('--- RAW LLM RESULT END ---');
-
-            // ─── Robust field-by-field extraction ─────────────────────────────────
-            function extractField(text, field, isNumber) {
-                if (isNumber) {
-                    const re = new RegExp('"' + field + '"\\s*:\\s*([\\d.,]+)');
-                    const m = text.match(re);
-                    if (!m) return 0;
-                    let numStr = m[1];
-                    // Handle European format: 1.841,78 (dot=thousands, comma=decimal)
-                    if (numStr.includes('.') && numStr.includes(',')) {
-                        numStr = numStr.replace(/\./g, '').replace(',', '.');
-                    } else {
-                        numStr = numStr.replace(',', '.'); // 1841,78 → 1841.78
-                    }
-                    return parseFloat(numStr) || 0;
-                }
-                const re = new RegExp('"' + field + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"', 's');
-                const m = text.match(re);
-                if (!m) return '';
-                return m[1].replace(/\\n/g, ' ').replace(/\\t/g, ' ').replace(/\\r/g, ' ')
-                           .replace(/\\"/g, '"').replace(/\\\\/g, '\\').replace(/\\./g, ' ');
+            // Cleanup & Normalize
+            function extractF(text, f, isNum) {
+                if (isNum) { const m = text.match(new RegExp('"' + f + '"\\s*:\\s*([\\d.,]+)')); return m ? parseFloat(m[1].replace(',', '.')) : 0; }
+                const m = text.match(new RegExp('"' + f + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"', 's'));
+                return m ? m[1].replace(/\\n/g, ' ').replace(/\\"/g, '"') : '';
             }
-
             let raw;
-            try {
-                // FIRST ATTEMPT: Native JSON parse (most accurate for numbers like 1841.78)
-                let cleaned = (result.match(/\{[\s\S]*\}/) || [result])[0];
-                cleaned = cleaned.replace(/[\x00-\x1F\x7F]/g, ' ').replace(/\\(?!["\\\/bfnrtu])/g, ' ');
-                raw = JSON.parse(cleaned);
-
-                // Ensure it has basic structure required by Phase 2/3
-                if (!raw._cost_value && !raw.title && !raw.category) {
-                    throw new Error('JSON parsed but missing structural fields, falling back to regex extraction');
-                }
-                
-                // If start_date exists but end_date doesn't, ensure they're at least empty strings for the sanity checker
-                raw.start_date = raw.start_date || '';
-                raw.contract_end_date = raw.contract_end_date || '';
-                raw.permanencia_end_date = raw.permanencia_end_date || '';
-
-            } catch (_) {
-                // FALLBACK: Regex extraction if LLM returned malformed JSON
-                console.log('[analyze] Native parse failed, falling back to extractField regex');
-                const candidate = {
-                    title:                extractField(result, 'title'),
-                    category:             extractField(result, 'category') || 'Other',
-                    billing_cycle:        extractField(result, 'billing_cycle') || 'Monthly',
-                    _cost_value:          extractField(result, '_cost_value', true),
-                    _cost_nature:         extractField(result, '_cost_nature') || 'monthly',
-                    start_date:           extractField(result, 'start_date'),
-                    contract_end_date:    extractField(result, 'contract_end_date'),
-                    permanencia_end_date: extractField(result, 'permanencia_end_date'),
-                    notes:                extractField(result, 'notes'),
-                };
-                raw = candidate;
-            }
-
-            // ─── PHASE 1.5: Normalize LLM fields to canonical English values ──────
-            // LLMs sometimes return values in the document language (e.g. "Mensual", "月付").
-            // We must normalize to the English enum values the DB and frontend expect.
-            const BILLING_NORM = {
-                mensual:'Monthly', monthly:'Monthly', 'per month':'Monthly', 'al mes':'Monthly',
-                trimestral:'Quarterly', quarterly:'Quarterly', 'per quarter':'Quarterly',
-                anual:'Annual', annual:'Annual', yearly:'Annual', 'per year':'Annual', 'al año':'Annual',
-                '月付':'Monthly','月缴':'Monthly','按月':'Monthly',
-                '季付':'Quarterly','季缴':'Quarterly','按季':'Quarterly',
-                '年付':'Annual','年缴':'Annual','按年':'Annual'
-            };
-            const CAT_NORM = {
-                insurance:'Insurance', seguros:'Insurance', seguro:'Insurance', '保险':'Insurance',
-                utilities:'Utilities', servicios:'Utilities', suministros:'Utilities', '水电':'Utilities','水电煤':'Utilities',
-                mobile:'Mobile', móvil:'Mobile', movil:'Mobile', '手机':'Mobile','通信':'Mobile',
-                internet:'Internet', banda:'Internet', broadband:'Internet', '宽带':'Internet',
-                subscription:'Subscription', suscripción:'Subscription', suscripcion:'Subscription', '订阅':'Subscription',
-                other:'Other', otro:'Other', otros:'Other', '其他':'Other'
-            };
-            if (raw.billing_cycle) {
-                const normBill = BILLING_NORM[(raw.billing_cycle || '').toLowerCase().trim()];
-                if (normBill) raw.billing_cycle = normBill;
-                else raw.billing_cycle = 'Monthly'; // safe fallback
-            }
-            if (raw.category) {
-                const normCat = CAT_NORM[(raw.category || '').toLowerCase().trim()];
-                if (normCat) raw.category = normCat;
-                // else keep whatever LLM returned (it may already be correct English)
-            }
-
-            // ─── PHASE 2: Code maps _cost_nature → divisor, performs exact division ─
-            //
-            // The LLM told us WHAT kind of amount it found.
-            // We map that label to a divisor and do one division.
-            // No hardcoded scenario logic — the LLM's own label drives everything.
-            //
-            //   "monthly"        → already per-month  → ÷ 1
-            //   "quarterly"      → per-quarter        → ÷ 3
-            //   "annual"         → per-year           → ÷ 12
-            //   "total_over_N"   → lump sum / N months → ÷ N
+            try { raw = JSON.parse((result.match(/\{[\s\S]*\}/) || [result])[0].replace(/[\x00-\x1F\x7F]/g, ' ')); }
+            catch (_) { raw = { title: extractF(result, 'title'), category: extractF(result, 'category'), _cost_value: extractF(result, '_cost_value', true), _cost_nature: extractF(result, '_cost_nature'), start_date: extractF(result, 'start_date'), contract_end_date: extractF(result, 'contract_end_date'), permanencia_end_date: extractF(result, 'permanencia_end_date'), notes: extractF(result, 'notes') }; }
 
             const costValue = parseFloat(raw._cost_value) || 0;
-            const nature    = (raw._cost_nature || 'monthly').toLowerCase().trim();
+            const nature = (raw._cost_nature || 'monthly').toLowerCase();
+            let div = 1;
+            if (nature === 'quarterly') div = 3;
+            else if (nature === 'annual') div = 12;
+            else if (nature.startsWith('total_over_')) div = parseInt(nature.slice(11)) || 1;
+            const mCost = parseFloat((costValue / div).toFixed(2));
 
-            let divisor = 1;
-            if (nature === 'quarterly') {
-                divisor = 3;
-            } else if (nature === 'annual') {
-                divisor = 12;
-            } else if (nature.startsWith('total_over_')) {
-                const n = parseInt(nature.replace('total_over_', ''), 10);
-                divisor = (!isNaN(n) && n > 0) ? n : 1;
-            }
-            // "monthly" or unrecognised → divisor stays 1
+            const sDate = s => { if (!s || !/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return null; const p = s.split('/'); const d = new Date(`${p[2]}-${p[1]}-${p[0]}T00:00:00`); return isNaN(d.getTime()) ? null : d; };
+            const toStr = d => d ? `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}` : '';
 
-            const monthlyCost = parseFloat((costValue / divisor).toFixed(2));
-            console.log(`[analyze] _cost_value=${costValue} / _cost_nature="${nature}" / divisor=${divisor} → monthly_cost=${monthlyCost}`);
+            let sD = raw.start_date || '', eD = raw.contract_end_date || '', pD = raw.permanencia_end_date || '';
+            const ds = sDate(sD), de = sDate(eD);
+            if (ds && de && ds >= de) [sD, eD] = [eD, sD];
+            if (ds && !de && ds > new Date(Date.now() + 90*86400000) && div > 1) { eD = sD; const cs = new Date(ds); cs.setMonth(cs.getMonth() - div); sD = toStr(cs); }
+            if (ds && (!de || ds.getTime() === de?.getTime()) && div > 1) { const ce = new Date(ds); ce.setMonth(ce.getMonth() + div); eD = toStr(ce); }
 
-            // ─── Date sanity: 3 auto-fixes ────────────────────────────────────────
-            // We now operate heavily on DD/MM/YYYY natively.
-            function safeDate(s) {
-                if (!s || !/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return null;
-                const parts = s.split('/');
-                const d = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
-                return isNaN(d.getTime()) ? null : d;
-            }
-
-            function toDDMMYYYY(dateObj) {
-                if (!dateObj) return '';
-                const dd = String(dateObj.getDate()).padStart(2, '0');
-                const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const yyyy = dateObj.getFullYear();
-                return `${dd}/${mm}/${yyyy}`;
-            }
-
-            let startDate = raw.start_date           || '';
-            let endDate   = raw.contract_end_date    || '';
-            let permDate  = raw.permanencia_end_date || '';
-
-            const today = new Date();
-
-            // Fix 1: start >= end → LLM swapped them, swap back
-            const dStart = safeDate(startDate);
-            const dEnd   = safeDate(endDate);
-            if (dStart && dEnd && dStart >= dEnd) {
-                console.log('[date-fix] start>=end, swapping:', startDate, '↔', endDate);
-                [startDate, endDate] = [endDate, startDate];
-            }
-
-            // Fix 2: Only start_date is filled, it's a future date AND we know the contract
-            //        duration → LLM almost certainly put the END date in the start_date field.
-            //        Reconstruct real start = end - divisor months.
-            const dStartA = safeDate(startDate);
-            const dEndA   = safeDate(endDate);
-            const threeMonthsFromNow = new Date(today.getFullYear(), today.getMonth() + 3, today.getDate());
-            if (dStartA && !dEndA && dStartA > threeMonthsFromNow && divisor > 1) {
-                // startDate is actually the end date
-                endDate = startDate;
-                const computedStart = new Date(dStartA);
-                computedStart.setMonth(computedStart.getMonth() - divisor);
-                startDate = toDDMMYYYY(computedStart);
-                console.log('[date-fix] end_date found in start field, reconstructed start:', startDate, 'end:', endDate);
-            }
-
-            // Fix 3: end missing or same as start → add divisor months to start
-            const dStartB = safeDate(startDate);
-            const dEndB   = safeDate(endDate);
-            if (dStartB && (!dEndB || dStartB.getTime() === dEndB?.getTime()) && divisor > 1) {
-                const computed = new Date(dStartB);
-                computed.setMonth(computed.getMonth() + divisor);
-                endDate = toDDMMYYYY(computed);
-                console.log('[date-fix] computed end from contract length:', endDate);
-            }
-
-            // Fix 4: perm date identical to start (LLM error) → set to end date
-            if (permDate && permDate === startDate && endDate && endDate !== startDate) {
-                permDate = endDate;
-            }
-
-            const parsed = {
-                title:                (raw.title || '').substring(0, 40),
-                category:             raw.category     || 'Other',
-                monthly_cost:         monthlyCost,
-                billing_cycle:        raw.billing_cycle || 'Monthly',
-                start_date:           startDate,
-                contract_end_date:    endDate,
-                permanencia_end_date: permDate,
-                notes:                raw.notes || '',
-            };
-
-            console.log('[analyze] monthly_cost computed:', costValue, '÷', divisor, '=', monthlyCost);
-            console.log('[analyze] notes preview:', (raw.notes || '(empty)').substring(0, 120));
-            console.log('[analyze] billing_cycle:', parsed.billing_cycle, '| category:', parsed.category);
-            res.json(parsed);
-
+            res.json({ title: (raw.title || '').slice(0, 40), category: raw.category || 'Other', monthly_cost: mCost, billing_cycle: raw.billing_cycle || 'Monthly', start_date: sD, contract_end_date: eD, permanencia_end_date: pD, notes: raw.notes || '' });
         } catch (e) {
             console.error('AI analysis error:', e);
             res.status(500).json({ error: 'AI analysis failed: ' + e.message });
@@ -899,10 +628,9 @@ function sanitizePath(str) {
     return String(str).replace(/[<>:"/\\|?*]+/g, '_').replace(/\s+/g, '_').trim();
 }
 
-function moveAndRenameFile(tempPath, category, title, originalName) {
-    if (!tempPath || !fs.existsSync(tempPath)) return null;
+function moveAndRenameFiles(files, category, title) {
+    if (!files || !files.length) return null;
     
-    // Use translated category name for the actual physical folder
     const translatedCat = getTranslatedCategoryName(category || 'Other');
     const cat = sanitizePath(translatedCat);
     const t = sanitizePath(title || 'Untitled');
@@ -912,21 +640,29 @@ function moveAndRenameFile(tempPath, category, title, originalName) {
         fs.mkdirSync(targetDir, { recursive: true });
     }
 
-    const ext = path.extname(originalName) || '.pdf';
-    let newFilename = `${t}${ext}`;
-    let newPath = path.join(targetDir, newFilename);
-    
-    let counter = 2;
-    while (fs.existsSync(newPath)) {
-        newFilename = `${t}_${counter}${ext}`;
-        newPath = path.join(targetDir, newFilename);
-        counter++;
-    }
+    const savedPaths = [];
+    files.forEach((file, index) => {
+        const ext = path.extname(file.originalname) || '.pdf';
+        // Format: suffix _2, _3 for additional files
+        const suffix = index === 0 ? '' : `_${index + 1}`;
+        let newFilename = `${t}${suffix}${ext}`;
+        let newPath = path.join(targetDir, newFilename);
+        
+        let counter = index === 0 ? 2 : (index + 2); // Avoid collision with existing or previous indices
+        while (fs.existsSync(newPath)) {
+            newFilename = `${t}_${counter}${ext}`;
+            newPath = path.join(targetDir, newFilename);
+            counter++;
+        }
 
-    fs.copyFileSync(tempPath, newPath);
-    fs.unlinkSync(tempPath);
-    return `Contracts/${cat}/${t}/${newFilename}`;
+        fs.copyFileSync(file.path, newPath);
+        fs.unlinkSync(file.path);
+        savedPaths.push(`Contracts/${cat}/${t}/${newFilename}`);
+    });
+
+    return savedPaths.join(';');
 }
+
 
 app.get('/api/version', (req, res) => {
     try {
@@ -953,7 +689,7 @@ app.get('/api/contracts/:id', (req, res) => {
     });
 });
 
-app.post('/api/contracts', upload.single('document'), (req, res) => {
+app.post('/api/contracts', upload.array('document', 10), (req, res) => {
     const { title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes } = req.body;
     if (!title) return res.status(400).json({ error: 'Title is required' });
     
@@ -961,13 +697,13 @@ app.post('/api/contracts', upload.single('document'), (req, res) => {
         const isLocal = !modeRow || modeRow.value === 'local';
         let file_path = null;
         
-        if (req.file) {
+        if (req.files && req.files.length > 0) {
             if (isLocal) {
-                file_path = moveAndRenameFile(req.file.path, category, title, req.file.originalname);
+                file_path = moveAndRenameFiles(req.files, category, title);
             } else {
-                // Cloud mode: Keep in uploads folder to avoid "Contracts" mirroring
-                file_path = `uploads/${path.basename(req.file.path)}`;
-                console.log("[Mode] Cloud mode: Keeping file in uploads.");
+                // Cloud mode: Keep in uploads folder
+                file_path = req.files.map(f => `uploads/${path.basename(f.path)}`).join(';');
+                console.log("[Mode] Cloud mode: Keeping files in uploads.");
             }
         }
 
@@ -995,7 +731,7 @@ app.post('/api/contracts', upload.single('document'), (req, res) => {
     });
 });
 
-app.put('/api/contracts/:id', upload.single('document'), (req, res) => {
+app.put('/api/contracts/:id', upload.array('document', 10), (req, res) => {
     const { title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes } = req.body;
     db.get(`SELECT * FROM contracts WHERE id = ?`, [req.params.id], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -1005,11 +741,11 @@ app.put('/api/contracts/:id', upload.single('document'), (req, res) => {
             const isLocal = !modeRow || modeRow.value === 'local';
             let file_path = row.file_path;
 
-            if (req.file) {
+            if (req.files && req.files.length > 0) {
                 if (isLocal) {
-                    file_path = moveAndRenameFile(req.file.path, category || row.category, title || row.title, req.file.originalname);
+                    file_path = moveAndRenameFiles(req.files, category || row.category, title || row.title);
                 } else {
-                    file_path = `uploads/${path.basename(req.file.path)}`;
+                    file_path = req.files.map(f => `uploads/${path.basename(f.path)}`).join(';');
                 }
             } else if (isLocal && ((title && title !== row.title) || (category && category !== row.category))) {
                 const oldCat = sanitizePath(row.category || 'Other');

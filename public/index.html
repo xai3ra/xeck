@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xeck - Contract Management</title>
+    <title>Xeck</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -814,10 +814,10 @@
             <header class="header">
                 <div class="greeting">
                     <h1 class="text-heading-lg"><span data-i18n="greeting">Hello</span>, <span id="headerName">Guest</span></h1>
-                    <p data-i18n="greeting_sub">Here is the status of your contracts.</p>
+                    <p data-i18n="greeting_sub">Aquí está el estado de tus contratos/suscripciones/documentos</p>
                 </div>
                 <button class="btn-primary" onclick="openAddModal()">
-                    <span data-i18n="btn_add_contract">Add New Contract</span>
+                    <span data-i18n="btn_add_contract">Añadir nuevo</span>
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 </button>
             </header>
@@ -987,7 +987,7 @@
                     <p data-i18n="sub_all_contracts">Full list of your registered contracts.</p>
                 </div>
                 <button class="btn-primary" onclick="openAddModal()">
-                    <span data-i18n="btn_add_contract">Add New Contract</span>
+                    <span data-i18n="btn_add_contract">Añadir nuevo</span>
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                 </button>
             </header>
@@ -1072,7 +1072,7 @@
             </button>
         </div>
 
-        <form class="slide-content" id="contractForm" onsubmit="submitContract(event)">
+        <form class="slide-content" id="contractForm" onsubmit="submitContract(event)" oninput="saveDraft()">
             <div class="form-group">
                 <label data-i18n="lbl_title">Title</label>
                 <input type="text" class="form-control" name="title" required placeholder="e.g. Movistar Fiber 1GB">
@@ -1091,6 +1091,7 @@
                     <option value="Mobile" data-i18n="cat_mobile">Mobile</option>
                     <option value="Subscription" data-i18n="cat_subscription">Subscription</option>
                     <option value="Internet" data-i18n="cat_internet">Internet</option>
+                    <option value="Documentation" data-i18n="cat_docs">Documentation</option>
                     <option value="Other" data-i18n="cat_other">Other</option>
                 </select>
             </div>
@@ -1117,14 +1118,14 @@
             
             <div class="form-group" style="margin-top: 1rem;">
                 <label data-i18n="lbl_doc">Contract Document</label>
-                <input type="file" id="fileInput" name="document" style="display:none;" onchange="updateFileName()">
+                <input type="file" id="fileInput" name="document" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="updateFileName()">
                 <div class="upload-area" onclick="document.getElementById('fileInput').click()">
                     <div class="upload-icon">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
                     </div>
                     <div class="upload-text">
                         <p id="fileName" data-i18n="lbl_doc_up">Upload Contract Document</p>
-                        <span data-i18n="lbl_doc_sub">PDF, JPG up to 10MB</span>
+                        <span data-i18n="lbl_doc_sub">PDF, JPG — multiple files supported</span>
                     </div>
                 </div>
             </div>
@@ -1158,69 +1159,69 @@
                 metric_expenses: "Total Monthly Expenses", metric_upcoming: "Upcoming Renewals (< 30 days)", title_active_contracts: "Active Contracts",
                 set_language: "Language", set_data: "Data Management", btn_export: "Export Backup (ZIP)", btn_import: "Import Backup",
                 data_warning: "Warning: Importing a backup will overwrite your current database and files.",
-                login_title: "Choose your storage method", login_sub: "Select how you want to save your contract data.",
-                login_local_title: "Local Storage Only", login_local_desc: "No login required. 100% private. Data stays on this device.",
-                login_google_title: "Google Drive Sync", login_google_desc: "Login to sync across devices (Requires Auth configuration).",
-                btn_cancel: "Cancel", btn_save: "Save Contract", slide_new_title: "New Contract",
+                login_title: "Choose your storage method", login_sub: "Select how you would like to store your contract data.",
+                login_local_title: "Local Storage Only", login_local_desc: "No logins. 100% private. Stays on this device.",
+                login_google_title: "Google Drive Sync", login_google_desc: "Sign in to sync across devices (Requires OAuth).",
+                btn_cancel: "Cancel", btn_save: "Save Contract", slide_new_title: "NUEVO",
                 lbl_title: "Title", lbl_cost: "Monthly Cost (€)", lbl_doc: "Contract Document",
-                lbl_doc_up: "Upload Contract Document", lbl_doc_sub: "PDF, JPG up to 10MB", doc_link: "Doc", no_date: "No Deadline",
-                days_rem: "days remaining", perm_ended: "Ended", status_active: "Active", no_perm: "No lock-in",
-                msg_required: "Please fill out this field.",
+                lbl_doc_up: "Upload Documents", lbl_doc_sub: "PDF, JPG up to 10MB", doc_link: "View", no_date: "No Fixed Date",
+                days_rem: "days remaining", perm_ended: "Ended", status_active: "Active", no_perm: "No lock-in period",
+                msg_required: "Please fill this field.",
                 lbl_category: "Category", lbl_billing: "Billing Cycle", lbl_start_date: "Start Date",
-                lbl_contract_end: "Contract End Date", lbl_perm_end: "Permanencia End Date", lbl_notes: "Notes",
-                lbl_no_fixed: "(leave blank if no fixed end)", lbl_lock_in: "(optional – lock-in period)", lbl_optional: "(optional)",
-                cat_utilities: "Utilities", cat_insurance: "Insurance", cat_mobile: "Mobile",
-                cat_subscription: "Subscription", cat_internet: "Internet", cat_other: "Other",
+                lbl_contract_end: "Fecha de fin", lbl_perm_end: "Lock-in End Date", lbl_notes: "Notes",
+                lbl_no_fixed: "(leave blank if no end date)", lbl_lock_in: "(optional)", lbl_optional: "(optional)",
+                cat_utilities: "Services", cat_insurance: "Insurance", cat_mobile: "Mobile",
+                cat_subscription: "Subscription", cat_internet: "Internet", cat_other: "Other", cat_docs: "Documentation",
                 bill_monthly: "Monthly", bill_annual: "Annual", bill_quarterly: "Quarterly",
                 set_ai_title: "AI Assistant", set_ai_sub: "Connect an AI model to auto-fill contracts from uploaded PDFs.",
-                lbl_ai_provider: "AI Provider", opt_select_provider: "— Select provider —", lbl_ai_key: "API Key",
+                lbl_ai_provider: "AI Provider", opt_select_provider: "— Select Provider —", lbl_ai_key: "API Key",
                 lbl_ai_model: "AI Model", opt_enter_key_first: "— Enter API Key first —",
                 btn_save_ai: "Save AI Settings", btn_analyze_ai: "✨ Analyze with AI",
                 title_all_contracts: "All Contracts", sub_all_contracts: "Full list of your registered contracts.",
-                sub_analytics: "Spending breakdown and renewal timeline.",
+                sub_analytics: "Breakdown of expenses and renewal timelines.",
                 tl_contract_details: "Contract Details", tl_monthly_cost: "Monthly Cost", tl_billing_cycle: "Billing Cycle", 
-                tl_start_date: "Start Date", tl_contract_end_date: "Contract End Date", tl_contract_end: "Contract End",
-                tl_documents: "Documents", tl_no_doc: "No document attached.", tl_attach_doc: "Attach Document", 
+                tl_start_date: "Start Date", tl_contract_end: "Fecha de fin",
+                tl_documents: "Documents", tl_no_doc: "No documents attached.", tl_attach_doc: "Attach Document", 
                 tl_delete_contract: "Delete Contract", tl_rolling: "Rolling", tl_no_fixed_rolling: "No fixed end (rolling)",
-                tl_perm_ending_soon: "⚠ Permanencia Ending Soon", tl_lock_in_ends_in: "Lock-in period ends in", 
-                tl_switch_penalty: " After this you can switch without penalty.", tl_perm_end_detail: "Permanencia End", 
-                tl_permanencia: "Permanencia", tl_ended_check: "Ended ✓", tl_notes_detail: "Notes", tl_renews: "Renews",
-                tl_spending_cat: "Spending by Category", tl_upcoming_90_days: "Upcoming Renewals (next 90 days)", 
-                tl_no_data: "No data yet.", tl_no_upcoming_renewals: "No upcoming renewals in the next 90 days.",
-                sync_status: "Syncing...", sync_local: "Local Storage Only", sync_cloud: "Connected to Drive",
-                sync_last: "Last sync", sync_failed: "Sync failed",
+                tl_perm_ending_soon: "⚠ Lock-in Ending Soon", tl_lock_in_ends_in: "Lock-in ends in", 
+                tl_switch_penalty: " After that you can switch without penalty.", tl_perm_end_detail: "Lock-in End", 
+                tl_permanencia: "Lock-in", tl_ended_check: "Ended ✓", tl_notes_detail: "Notes", tl_renews: "Renews",
+                tl_spending_cat: "Spending by Category", tl_upcoming_90_days: "Upcoming Renewals (Next 90 days)", 
+                tl_no_data: "No data.", tl_no_upcoming_renewals: "No renewals in the next 90 days.",
                 delete_confirm_title: "Delete Contract?",
-                delete_confirm_msg: "WARNING: This will also permanently delete the contract folder and all attached PDF/JPG files.",
-                btn_confirm: "Confirm Delete",
+                delete_confirm_msg: "ATTENTION: This will permanently delete the contract directory and all attached files.",
+                btn_confirm: "Confirm",
                 set_profile_title: "Profile Settings", lbl_nickname: "Nickname", btn_save_settings: "Save Settings",
                 msg_saved: "Saved successfully", msg_fetching_models: "Fetching models...", msg_no_models: "No models found",
-                msg_fetch_failed: "Discovery failed, save anyway", tl_historical_trend: "Historical Spending Trend (Last 12 Months)",
-                btn_generate_advice: "✨ Get Professional AI Advice", msg_ai_consulting: "Our AI specialist is reviewing your portfolio...",
-                tl_ai_insights: "Professional AI Insights", btn_logout: "Logout / Switch Storage",
+                msg_fetch_failed: "Discovery failed", tl_historical_trend: "Historical Spending Trend (Last 12 months)",
+                btn_generate_advice: "✨ Get AI Professional Advice", msg_ai_consulting: "Our AI specialist is reviewing your portfolio...",
+                tl_ai_insights: "Professional AI Insights", btn_logout: "Logout / Switch Account",
                 set_version: "Application Version", lbl_current_version: "Current Version", btn_check_update: "Check for Updates",
                 msg_checking_update: "Checking for updates...", msg_latest_version: "You are already using the latest version.",
-                msg_update_available: "A new version is available! Please wait for the download prompt."
+                msg_update_available: "A new version is available! Please wait for the download prompt.",
+                sync_status: "Syncing...", sync_local: "Local Storage Only", sync_cloud: "Connected to Drive",
+                sync_last: "Last sync", sync_failed: "Sync failed"
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
                 greeting: "Hola", greeting_sub: "Aquí está el estado de tus contratos.",
-                settings_sub: "Administra tus preferencias y copias de seguridad.", btn_add_contract: "Añadir Nuevo Contrato",
+                settings_sub: "Administra tus preferencias y copias de seguridad.", btn_add_contract: "Añadir nuevo",
                 metric_expenses: "Gastos Mensuales Totales", metric_upcoming: "Próximas Renov. (< 30 días)", title_active_contracts: "Contratos Activos",
                 set_language: "Idioma", set_data: "Gestión de Datos", btn_export: "Exportar Copia (ZIP)", btn_import: "Importar Copia",
                 data_warning: "Aviso: Importar un zip sobrescribirá tu base de datos y archivos locales.",
                 login_title: "Elige tu método de guardado", login_sub: "Selecciona cómo quieres guardar los datos de tus contratos.",
                 login_local_title: "Solo Almacenamiento Local", login_local_desc: "Sin inicios de sesión. 100% privado. Todo en este dispositivo.",
                 login_google_title: "Sincronización con Google Drive", login_google_desc: "Inicia sesión para sincronizar (Requiere OAuth).",
-                btn_cancel: "Cancelar", btn_save: "Guardar Contrato", slide_new_title: "Nuevo Contrato",
+                btn_cancel: "Cancelar", btn_save: "Guardar Contrato", slide_new_title: "NUEVO",
                 lbl_title: "Título", lbl_cost: "Coste Mensual (€)", lbl_doc: "Documento Contrato",
-                lbl_doc_up: "Sube un Documento", lbl_doc_sub: "PDF, JPG hasta 10MB", doc_link: "Doc", no_date: "Sin Fecha",
+                lbl_doc_up: "Subir Documentos", lbl_doc_sub: "PDF, JPG hasta 10MB", doc_link: "Doc", no_date: "Sin Fecha",
                 days_rem: "días restantes", perm_ended: "Terminada", status_active: "Activo", no_perm: "Sin permanencia",
                 msg_required: "Por favor, rellene este campo.",
                 lbl_category: "Categoría", lbl_billing: "Ciclo de Facturación", lbl_start_date: "Fecha de Inicio",
-                lbl_contract_end: "Fin del Contrato", lbl_perm_end: "Fin de Permanencia", lbl_notes: "Notas",
+                lbl_contract_end: "Fecha de fin", lbl_perm_end: "Fin de Permanencia", lbl_notes: "Notas",
                 lbl_no_fixed: "(dejar en blanco si no hay fin)", lbl_lock_in: "(opcional)", lbl_optional: "(opcional)",
                 cat_utilities: "Servicios", cat_insurance: "Seguros", cat_mobile: "Móvil",
-                cat_subscription: "Suscripción", cat_internet: "Internet", cat_other: "Otro",
+                cat_subscription: "Suscripción", cat_internet: "Internet", cat_other: "Otro", cat_docs: "Documentación",
                 bill_monthly: "Mensual", bill_annual: "Anual", bill_quarterly: "Trimestral",
                 set_ai_title: "Asistente AI", set_ai_sub: "Conecta un modelo de IA para autorrellenar contratos desde PDFs.",
                 lbl_ai_provider: "Proveedor de IA", opt_select_provider: "— Seleccionar proveedor —", lbl_ai_key: "Clave API",
@@ -1229,7 +1230,7 @@
                 title_all_contracts: "Todos los Contratos", sub_all_contracts: "Lista completa de tus contratos.",
                 sub_analytics: "Desglose de gastos y plazos de renovación.",
                 tl_contract_details: "Detalles del Contrato", tl_monthly_cost: "Coste Mensual", tl_billing_cycle: "Ciclo de Facturación", 
-                tl_start_date: "Fecha de Inicio", tl_contract_end_date: "Fin del Contrato", tl_contract_end: "Fin del Contrato",
+                tl_start_date: "Fecha de Inicio", tl_contract_end: "Fecha de fin",
                 tl_documents: "Documentos", tl_no_doc: "Ningún documento adjunto.", tl_attach_doc: "Adjuntar Documento", 
                 tl_delete_contract: "Eliminar Contrato", tl_rolling: "Continuo", tl_no_fixed_rolling: "Sin fecha final (continuo)",
                 tl_perm_ending_soon: "⚠ Permanencia Termina Pronto", tl_lock_in_ends_in: "La permanencia termina en", 
@@ -1253,24 +1254,24 @@
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
-                greeting: "您好", greeting_sub: "这是您目前的合同状态。",
-                settings_sub: "管理您的偏好设置和数据备份。", btn_add_contract: "添加新合同",
+                greeting: "您好", greeting_sub: " aquí está el estado de tus contratos/suscripciones/documentos",
+                settings_sub: "管理您的偏好设置和数据备份。", btn_add_contract: "Añadir nuevo",
                 metric_expenses: "月总支出", metric_upcoming: "即将到期 (30天内)", title_active_contracts: "正生效合同",
                 set_language: "语言选择", set_data: "数据管理", btn_export: "导出备份 (ZIP)", btn_import: "导入备份",
                 data_warning: "警告：导入备份文件将会覆盖您当前的本地数据库与全部文件。",
                 login_title: "选择登录/存储方式", login_sub: "请选择您希望如何存储合同数据。",
                 login_local_title: "仅本地存储 (免登录)", login_local_desc: "无需登录。100%私密。数据仅保留在当前设备。",
                 login_google_title: "Google Drive 云端同步", login_google_desc: "通过谷歌账号多端同步 (需要后端 Auth 配置支持)。",
-                btn_cancel: "取消", btn_save: "保存合同", slide_new_title: "新建合同",
+                btn_cancel: "取消", btn_save: "保存合同", slide_new_title: "NUEVO",
                 lbl_title: "合同名称", lbl_cost: "月度费用 (€)", lbl_doc: "合同附件",
                 lbl_doc_up: "点击上传合同附件", lbl_doc_sub: "支持 PDF, JPG (最大10MB)", doc_link: "查看", no_date: "未设期限",
                 days_rem: "天后到期", perm_ended: "已结束", status_active: "生效中", no_perm: "无锁定期",
                 msg_required: "请填写此字段。",
                 lbl_category: "分类", lbl_billing: "计费周期", lbl_start_date: "开始日期",
-                lbl_contract_end: "合同结束日期", lbl_perm_end: "锁定期结束日期", lbl_notes: "备注",
+                lbl_contract_end: "Fecha de fin", lbl_perm_end: "锁定期结束日期", lbl_notes: "备注",
                 lbl_no_fixed: "(如果没有固定结束日期请留空)", lbl_lock_in: "(选填项 - 锁定期限)", lbl_optional: "(选填)",
                 cat_utilities: "水电煤", cat_insurance: "保险", cat_mobile: "通信",
-                cat_subscription: "订阅", cat_internet: "宽带", cat_other: "其他",
+                cat_subscription: "订阅", cat_internet: "宽带", cat_other: "其他", cat_docs: "证件",
                 bill_monthly: "一月一付", bill_annual: "一年一付", bill_quarterly: "一季一付",
                 set_ai_title: "AI 助手", set_ai_sub: "连接 AI 模型以从上传的 PDF 自动填充合同信息。",
                 lbl_ai_provider: "AI 提供商", opt_select_provider: "— 选择提供商 —", lbl_ai_key: "API 密钥",
@@ -1279,13 +1280,13 @@
                 title_all_contracts: "所有合同", sub_all_contracts: "您登记的合同完整列表。",
                 sub_analytics: "按月支出细分与续约时间表。",
                 tl_contract_details: "合同详情", tl_monthly_cost: "月度费用", tl_billing_cycle: "计费周期", 
-                tl_start_date: "开始日期", tl_contract_end_date: "合同结束日期", tl_contract_end: "合同结束",
+                tl_start_date: "开始日期", tl_contract_end: "Fecha de fin",
                 tl_documents: "附件", tl_no_doc: "未上传任何文件。", tl_attach_doc: "上传附件", 
                 tl_delete_contract: "删除合同", tl_rolling: "无固定", tl_no_fixed_rolling: "未设期限 (自动延续)",
                 tl_perm_ending_soon: "⚠ 锁定期即将结束", tl_lock_in_ends_in: "锁定期还剩", 
                 tl_switch_penalty: "。之后您可以无违约金更换套餐。", tl_perm_end_detail: "锁定期满", 
                 tl_permanencia: "锁定期", tl_ended_check: "已结束 ✓", tl_notes_detail: "备注", tl_renews: "续约日",
-                tl_no_contracts: "暂无合同。点击 “添加新合同” 开始使用。", 
+                tl_no_contracts: "暂无合同。点击 “Añadir nuevo” 开始使用。", 
                 tl_spending_cat: "按类别支出占比", tl_upcoming_90_days: "即将到期 (未来90天)", 
                 tl_no_data: "暂无数据。", tl_no_upcoming_renewals: "未来 90 天内没有即将到期的合同。",
                 delete_confirm_title: "确定要彻底删除此合同吗？",
@@ -1669,10 +1670,58 @@
         }
 
         function openAddModal() {
+            // Check for saved draft
+            const draft = localStorage.getItem('xeck_contract_draft');
+            if (draft) {
+                const i18n = translations[currentLang] || translations['en'];
+                const msg = currentLang === 'zh' ? '有未完成的草稿，是否继续编辑？' : currentLang === 'es' ? '¿Hay un borrador sin terminar. ¿Deseas continuar?' : 'You have an unsaved draft. Continue from where you left off?';
+                if (confirm(msg)) {
+                    const data = JSON.parse(draft);
+                    document.getElementById('globalOverlay').style.display = 'block';
+                    const modal = document.getElementById('addModal');
+                    modal.style.display = 'flex';
+                    setTimeout(() => {
+                        modal.classList.add('show');
+                        restoreDraft(data);
+                    }, 10);
+                    return;
+                } else {
+                    localStorage.removeItem('xeck_contract_draft');
+                }
+            }
             document.getElementById('globalOverlay').style.display = 'block';
             const modal = document.getElementById('addModal');
             modal.style.display = 'flex';
             setTimeout(() => modal.classList.add('show'), 10);
+        }
+
+        function saveDraft() {
+            const form = document.getElementById('contractForm');
+            if (!form) return;
+            const data = {};
+            ['title','monthly_cost','category','billing_cycle','start_date','contract_end_date','permanencia_end_date','notes'].forEach(name => {
+                const el = form.querySelector(`[name="${name}"]`);
+                if (el) data[name] = el.value;
+            });
+            if (Object.values(data).some(v => v)) {
+                localStorage.setItem('xeck_contract_draft', JSON.stringify(data));
+            }
+        }
+
+        function restoreDraft(data) {
+            const form = document.getElementById('contractForm');
+            if (!form || !data) return;
+            Object.entries(data).forEach(([name, val]) => {
+                const el = form.querySelector(`[name="${name}"]`);
+                if (el && val) {
+                    el.value = val;
+                    // Try flatpickr for dates
+                    if (['start_date','contract_end_date','permanencia_end_date'].includes(name)) {
+                        const fp = (Array.isArray(datePickers) ? datePickers : []).find(p => p && (p.element === el || p.input === el));
+                        if (fp) fp.setDate(val, true);
+                    }
+                }
+            });
         }
 
         function openDetailPanel(id) {
@@ -1750,8 +1799,12 @@
                         <input type="file" style="display:none;" accept=".pdf,.jpg,.jpeg,.png" onchange="uploadDetailDoc(${c.id}, this)">
                     </label>
                 </div>
-                <div style="margin-top:auto;padding-top:1rem;border-top:2px solid var(--border-light);">
-                    <button class="delete-btn" onclick="showDeleteConfirm(${c.id})">${i18n.tl_delete_contract}</button>
+                <div style="margin-top:auto;padding-top:1rem;border-top:2px solid var(--border-light);display:flex;gap:0.75rem;align-items:center;">
+                    <button class="btn-secondary" style="flex:1;justify-content:center;" onclick="editContract(${c.id})">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.172-8.172z"></path></svg>
+                        Edit
+                    </button>
+                    <button class="delete-btn" style="flex:1;" onclick="showDeleteConfirm(${c.id})">${i18n.tl_delete_contract}</button>
                 </div>
             `;
 
@@ -1775,15 +1828,25 @@
                 document.getElementById('globalOverlay').style.display = 'none';
                 lgModal.style.display = 'none';
                 if (delModal) delModal.style.display = 'none';
-                document.getElementById('contractForm').reset();
+                const form = document.getElementById('contractForm');
+                form.reset();
+                form.removeAttribute('data-edit-id');
+                const titleEl = document.querySelector('#addModal .text-micro-caps');
+                if (titleEl) titleEl.textContent = (translations[currentLang] || translations['en']).slide_new_title || 'NUEVO';
                 document.getElementById('fileName').innerText = translations[currentLang]['lbl_doc_up'];
             }, 300);
         }
 
         function updateFileName() {
             const input = document.getElementById('fileInput');
-            const hasFile = input.files.length > 0;
-            document.getElementById('fileName').innerText = hasFile ? input.files[0].name : translations[currentLang]['lbl_doc_up'];
+            const count = input.files.length;
+            if (count === 0) {
+                document.getElementById('fileName').innerText = translations[currentLang]['lbl_doc_up'];
+            } else if (count === 1) {
+                document.getElementById('fileName').innerText = input.files[0].name;
+            } else {
+                document.getElementById('fileName').innerText = `${count} files selected`;
+            }
         }
 
         async function uploadDetailDoc(contractId, input) {
@@ -1932,7 +1995,8 @@
             btn.textContent = 'Analyzing...';
             
             const fd = new FormData();
-            fd.append('document', input.files[0]);
+            // Append all selected files
+            for (const file of input.files) { fd.append('document', file); }
             fd.append('lang', currentLang);
             try {
                 const res = await fetch('/api/analyze-contract', { method: 'POST', body: fd });
@@ -2114,12 +2178,56 @@
 
         async function submitContract(e) {
             e.preventDefault();
-            const formData = new FormData(document.getElementById('contractForm'));
+            const form = document.getElementById('contractForm');
+            const contractId = form.dataset.editId;
+            const formData = new FormData(form);
             try {
-                const response = await fetch('/api/contracts', { method: 'POST', body: formData });
-                if (response.ok) { closeAllModals(); loadContracts(); }
-                else { alert('Error adding contract'); }
+                const url = contractId ? `/api/contracts/${contractId}` : '/api/contracts';
+                const method = contractId ? 'PUT' : 'POST';
+                const response = await fetch(url, { method, body: formData });
+                if (response.ok) {
+                    localStorage.removeItem('xeck_contract_draft');
+                    form.removeAttribute('data-edit-id');
+                    closeAllModals();
+                    loadContracts();
+                } else { alert('Error saving contract'); }
             } catch (err) { console.error(err); alert('Network error'); }
+        }
+
+        function editContract(id) {
+            const c = allContracts.find(x => x.id === id);
+            if (!c) return;
+            // Close detail panel
+            document.getElementById('detailModal').classList.remove('show');
+            setTimeout(() => document.getElementById('detailModal').style.display = 'none', 300);
+
+            const form = document.getElementById('contractForm');
+            form.dataset.editId = id;
+
+            // Populate fields
+            const set = (name, val) => { const el = form.querySelector(`[name="${name}"]`); if (el && val != null) el.value = val; };
+            set('title', c.title);
+            set('monthly_cost', c.monthly_cost);
+            set('category', c.category);
+            set('billing_cycle', c.billing_cycle);
+            set('notes', c.notes);
+
+            ['start_date','contract_end_date','permanencia_end_date'].forEach(name => {
+                const el = form.querySelector(`[name="${name}"]`);
+                const val = c[name];
+                if (el && val) {
+                    const fp = (Array.isArray(datePickers) ? datePickers : []).find(p => p && (p.element === el || p.input === el));
+                    if (fp) fp.setDate(val, true); else el.value = val;
+                }
+            });
+
+            // Update header label
+            document.querySelector('#addModal .text-micro-caps').textContent = 'EDIT';
+
+            document.getElementById('globalOverlay').style.display = 'block';
+            const modal = document.getElementById('addModal');
+            modal.style.display = 'flex';
+            setTimeout(() => modal.classList.add('show'), 10);
         }
 
         async function importBackup(file) {
