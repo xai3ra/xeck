@@ -908,7 +908,7 @@
             </div>
 
             <div class="settings-card">
-                <div class="settings-card-title">Account / Storage</div>
+                <div class="settings-card-title" data-i18n="set_account_storage">Account / Storage</div>
                 <div style="margin-top: 1rem;">
                     <button class="btn-secondary" onclick="logout()" style="border-color: #EF4444; color: #EF4444; width: fit-content;">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" style="margin-right: 4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
@@ -1211,7 +1211,8 @@
                 msg_checking_update: "Checking for updates...", msg_latest_version: "You are already using the latest version.",
                 msg_update_available: "A new version is available! Please wait for the download prompt.",
                 sync_status: "Syncing...", sync_local: "Local Storage Only", sync_cloud: "Connected to Drive",
-                sync_last: "Last sync", sync_failed: "Sync failed"
+                sync_last: "Last sync", sync_failed: "Sync failed",
+                set_account_storage: "Account / Storage"
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
@@ -1261,25 +1262,26 @@
                 msg_checking_update: "Buscando actualizaciones...", msg_latest_version: "Ya estás usando la versión más reciente.",
                 msg_update_available: "¡Hay una nueva versión disponible! Por favor, espera al mensaje de descarga.",
                 sync_status: "Sincronizando...", sync_local: "Solo Almacenamiento Local", sync_cloud: "Conectado a Drive",
-                sync_last: "Última sinc.", sync_failed: "Sinc. fallida"
+                sync_last: "Última sinc.", sync_failed: "Sinc. fallida",
+                set_account_storage: "Cuenta / Almacenamiento"
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
-                greeting: "您好", greeting_sub: " aquí está el estado de tus contratos/suscripciones/documentos",
-                settings_sub: "管理您的偏好设置和数据备份。", btn_add_contract: "Añadir nuevo",
+                greeting: "您好", greeting_sub: "以下是您的合同、订阅和文件状态",
+                settings_sub: "管理您的偏好设置和数据备份。", btn_add_contract: "添加新合同",
                 metric_expenses: "月总支出", metric_upcoming: "即将到期 (30天内)", title_active_contracts: "正生效合同",
                 set_language: "语言选择", set_data: "数据管理", btn_export: "导出备份 (ZIP)", btn_import: "导入备份",
                 data_warning: "警告：导入备份文件将会覆盖您当前的本地数据库与全部文件。",
                 login_title: "选择登录/存储方式", login_sub: "请选择您希望如何存储合同数据。",
                 login_local_title: "仅本地存储 (免登录)", login_local_desc: "无需登录。100%私密。数据仅保留在当前设备。",
                 login_google_title: "Google Drive 云端同步", login_google_desc: "通过谷歌账号多端同步 (需要后端 Auth 配置支持)。",
-                btn_cancel: "取消", btn_save: "保存合同", slide_new_title: "NUEVO",
+                btn_cancel: "取消", btn_save: "保存合同", slide_new_title: "新增合同",
                 lbl_title: "合同名称", lbl_cost: "月度费用 (€)", lbl_doc: "合同附件",
                 lbl_doc_up: "点击上传合同附件", lbl_doc_sub: "支持 PDF, JPG (最大10MB)", doc_link: "查看", no_date: "未设期限",
                 days_rem: "天后到期", perm_ended: "已结束", status_active: "生效中", no_perm: "无锁定期",
                 msg_required: "请填写此字段。",
                 lbl_category: "分类", lbl_billing: "计费周期", lbl_start_date: "开始日期",
-                lbl_contract_end: "Fecha de fin", lbl_perm_end: "锁定期结束日期", lbl_notes: "备注",
+                lbl_contract_end: "结束日期", lbl_perm_end: "锁定期结束日期", lbl_notes: "备注",
                 lbl_no_fixed: "(如果没有固定结束日期请留空)", lbl_lock_in: "(选填项 - 锁定期限)", lbl_optional: "(选填)",
                 cat_utilities: "水电煤", cat_insurance: "保险", cat_mobile: "通信",
                 cat_subscription: "订阅", cat_internet: "宽带", cat_other: "其他", cat_docs: "证件",
@@ -1291,13 +1293,13 @@
                 title_all_contracts: "所有合同", sub_all_contracts: "您登记的合同完整列表。",
                 sub_analytics: "按月支出细分与续约时间表。",
                 tl_contract_details: "合同详情", tl_monthly_cost: "月度费用", tl_billing_cycle: "计费周期", 
-                tl_start_date: "开始日期", tl_contract_end: "Fecha de fin",
+                tl_start_date: "开始日期", tl_contract_end: "结束日期",
                 tl_documents: "附件", tl_no_doc: "未上传任何文件。", tl_attach_doc: "上传附件", 
                 tl_delete_contract: "删除合同", tl_rolling: "无固定", tl_no_fixed_rolling: "未设期限 (自动延续)",
                 tl_perm_ending_soon: "⚠ 锁定期即将结束", tl_lock_in_ends_in: "锁定期还剩", 
                 tl_switch_penalty: "。之后您可以无违约金更换套餐。", tl_perm_end_detail: "锁定期满", 
                 tl_permanencia: "锁定期", tl_ended_check: "已结束 ✓", tl_notes_detail: "备注", tl_renews: "续约日",
-                tl_no_contracts: "暂无合同。点击 “Añadir nuevo” 开始使用。", 
+                tl_no_contracts: "暂无合同。点击 “添加新合同” 开始使用。", 
                 tl_spending_cat: "按类别支出占比", tl_upcoming_90_days: "即将到期 (未来90天)", 
                 tl_no_data: "暂无数据。", tl_no_upcoming_renewals: "未来 90 天内没有即将到期的合同。",
                 delete_confirm_title: "确定要彻底删除此合同吗？",
@@ -1312,7 +1314,8 @@
                 sync_last: "上次同步", sync_failed: "同步失败",
                 set_version: "应用版本", lbl_current_version: "当前版本", btn_check_update: "检查更新",
                 msg_checking_update: "正在检查更新...", msg_latest_version: "您当前已是最新版本。",
-                msg_update_available: "发现新版本！请稍后并在弹出的窗口中确认下载。"
+                msg_update_available: "发现新版本！请稍后并在弹出的窗口中确认下载。",
+                set_account_storage: "账号与存储"
             }
         };
 

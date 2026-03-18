@@ -504,6 +504,8 @@ Translate everything into ${notesLang}. "notes" should be a bulleted list coveri
 
 Fields: title, category (Utilities, Insurance, Mobile, Internet, Subscription, Documentation, Other), billing_cycle (Monthly, Annual, Quarterly), _cost_value (number), _cost_nature ("monthly", "quarterly", "annual", "total_over_N"), start_date, contract_end_date, permanencia_end_date (DD/MM/YYYY), notes.
 
+IMPORTANT on COST: If the document shows a total cost covering a specific period (e.g., "1800€ for 3 years" or "Single premium for 24 months"), set _cost_value to that total (1800) and set _cost_nature to "total_over_N" where N is total months (e.g., "total_over_36" or "total_over_24").
+
 Context Facts: ${keyFacts}
 
 JSON: {"title":"","category":"","billing_cycle":"","_cost_value":0,"_cost_nature":"monthly","start_date":"","contract_end_date":"","permanencia_end_date":"","notes":""}`;
