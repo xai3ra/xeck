@@ -601,6 +601,24 @@
             font-family: var(--font-family);
             transition: border-color 0.2s, box-shadow 0.2s;
         }
+
+        /* Custom Modal */
+        .custom-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);
+            display: none; align-items: center; justify-content: center; z-index: 10000;
+        }
+        .custom-modal {
+            background: white; padding: 24px; border-radius: 16px; width: 90%; max-width: 400px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); text-align: center;
+        }
+        .custom-modal-msg { margin-bottom: 24px; color: var(--text-primary); line-height: 1.5; font-size: 0.95rem; }
+        .custom-modal-actions { display: flex; gap: 12px; justify-content: center; }
+        .custom-modal-btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; font-size: 0.875rem; }
+        .btn-ok { background: var(--primary-color); color: white; }
+        .btn-ok:hover { background: var(--primary-hover); }
+        .btn-cancel { background: #F3F4F6; color: var(--text-secondary); }
+        .btn-cancel:hover { background: #E5E7EB; }
         
         .form-control:focus {
             outline: none;
@@ -773,6 +791,16 @@
     </style>
 </head>
 <body>
+    <!-- Custom Global Modal -->
+    <div id="customModalOverlay" class="custom-modal-overlay">
+        <div class="custom-modal">
+            <p id="customModalMsg" class="custom-modal-msg"></p>
+            <div class="custom-modal-actions">
+                <button id="customModalCancel" class="custom-modal-btn btn-cancel" data-i18n="btn_cancel">Cancel</button>
+                <button id="customModalOk" class="custom-modal-btn btn-ok" data-i18n="btn_ok">OK</button>
+            </div>
+        </div>
+    </div>
 
     <aside class="sidebar">
         <div class="logo">
@@ -1215,7 +1243,8 @@
                 sync_last: "Last sync", sync_failed: "Sync failed",
                 set_account_storage: "Account / Storage",
                 id_google_user: "Google User", id_connecting: "Connecting...", id_local_guest: "Guest",
-                pl_title: "e.g. Movistar Fiber 1GB"
+                pl_title: "e.g. Movistar Fiber 1GB",
+                btn_ok: "OK", btn_confirm: "Confirm"
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
@@ -1269,7 +1298,8 @@
                 sync_last: "Última sinc.", sync_failed: "Sinc. fallida",
                 set_account_storage: "Cuenta / Almacenamiento",
                 id_google_user: "Usuario Google", id_connecting: "Conectando...", id_local_guest: "Invitado",
-                pl_title: "p. ej. Fibra Movistar 1GB"
+                pl_title: "p. ej. Fibra Movistar 1GB",
+                btn_ok: "Aceptar", btn_confirm: "Confirmar"
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
@@ -1324,7 +1354,8 @@
                 set_account_storage: "账号与存储",
                 btn_logout: "退出登录 / 切换账号",
                 id_google_user: "谷歌用户", id_connecting: "待连接", id_local_guest: "本地访客",
-                pl_title: "例如：中国移动宽带 1000M"
+                pl_title: "例如：中国移动宽带 1000M",
+                btn_ok: "好的", btn_confirm: "确定"
             }
         };
 
@@ -1428,6 +1459,34 @@
                 applyUserIdentity();
                 loadContracts();
             }
+        }
+
+        async function showCustomModal(message, type = 'alert') {
+            return new Promise((resolve) => {
+                const overlay = document.getElementById('customModalOverlay');
+                const msgEl = document.getElementById('customModalMsg');
+                const cancelBtn = document.getElementById('customModalCancel');
+                const okBtn = document.getElementById('customModalOk');
+                const i18n = translations[currentLang] || translations['en'];
+
+                msgEl.innerText = message;
+                overlay.style.display = 'flex';
+                cancelBtn.style.display = (type === 'confirm') ? 'block' : 'none';
+                
+                // Set button text explicitly to ensure localization
+                okBtn.innerText = i18n.btn_ok || 'OK';
+                cancelBtn.innerText = i18n.btn_confirm || 'Confirm';
+
+                const close = (res) => {
+                    overlay.style.display = 'none';
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                    resolve(res);
+                };
+
+                okBtn.onclick = () => close(true);
+                cancelBtn.onclick = () => close(false);
+            });
         }
 
         let authPollInterval = null;
@@ -1730,13 +1789,13 @@
             setTimeout(() => document.getElementById('loginModal').classList.add('show'), 10);
         }
 
-        function openAddModal() {
+        async function openAddModal() {
             // Check for saved draft
             const draft = localStorage.getItem('xeck_contract_draft');
             if (draft) {
                 const i18n = translations[currentLang] || translations['en'];
-                const msg = currentLang === 'zh' ? '有未完成的草稿，是否继续编辑？' : currentLang === 'es' ? '¿Hay un borrador sin terminar. ¿Deseas continuar?' : 'You have an unsaved draft. Continue from where you left off?';
-                if (confirm(msg)) {
+                const msg = i18n.msg_restore_draft || (currentLang === 'zh' ? '有未完成的草稿，是否继续编辑？' : currentLang === 'es' ? '¿Hay un borrador sin terminar. ¿Deseas continuar?' : 'You have an unsaved draft. Continue from where you left off?');
+                if (await showCustomModal(msg, 'confirm')) {
                     const data = JSON.parse(draft);
                     document.getElementById('globalOverlay').style.display = 'block';
                     const modal = document.getElementById('addModal');
@@ -1917,8 +1976,8 @@
             try {
                 const res = await fetch(`/api/contracts/${contractId}`, { method: 'PUT', body: fd });
                 if (res.ok) { loadContracts(); openDetailPanel(contractId); }
-                else { alert('Upload failed'); }
-            } catch(e) { alert('Network error'); }
+                else { await showCustomModal('Upload failed'); }
+            } catch(e) { await showCustomModal('Network error'); }
         }
 
         let aiModels = {
@@ -2000,7 +2059,7 @@
 
             // Allow clearing settings if key is empty
             if (!key) {
-                if (confirm(currentLang === 'zh' ? '确定要清空并禁用 AI 助手吗？' : 'Clear and disable AI settings?')) {
+                if (await showCustomModal(currentLang === 'zh' ? '确定要清空并禁用 AI 助手吗？' : 'Clear and disable AI settings?', 'confirm')) {
                     const res = await fetch('/api/settings', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -2025,8 +2084,8 @@
                     const msg = document.getElementById('aiSaveMsg');
                     msg.style.display = 'block';
                     setTimeout(() => msg.style.display = 'none', 3000);
-                } else { alert('Failed to save settings'); }
-            } catch(e) { alert('Network error'); }
+                } else { await showCustomModal('Failed to save settings'); }
+            } catch(e) { await showCustomModal('Network error'); }
         }
 
         async function loadAiSettings() {
@@ -2048,7 +2107,7 @@
             const btn = document.getElementById('aiAnalyzeBtn');
             
             if (!input.files || !input.files.length) {
-                alert(currentLang === 'zh' ? '请先上传PDF或JPG合同文件' : 'Please upload a PDF or JPG contract file first');
+                await showCustomModal(currentLang === 'zh' ? '请先上传PDF或JPG合同文件' : 'Please upload a PDF or JPG contract file first');
                 return;
             }
             
@@ -2062,7 +2121,7 @@
             try {
                 const res = await fetch('/api/analyze-contract', { method: 'POST', body: fd });
                 const data = await res.json();
-                if (!res.ok) { alert('AI error: ' + (data.error || 'Unknown error')); return; }
+                if (!res.ok) { await showCustomModal('AI error: ' + (data.error || 'Unknown error')); return; }
                 const form = document.getElementById('contractForm');
 
                 // Title – cap at 40 chars
@@ -2107,7 +2166,7 @@
                     if (n) n.placeholder = warnMsg;
                 }
 
-            } catch(e) { alert('Network error: ' + e.message); }
+            } catch(e) { await showCustomModal('Network error: ' + e.message); }
             finally {
                 btn.classList.remove('loading');
                 btn.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg> <span data-i18n="btn_analyze_ai">${(translations[currentLang]||translations['en']).btn_analyze_ai}</span>`;
@@ -2251,8 +2310,8 @@
                     form.removeAttribute('data-edit-id');
                     closeAllModals();
                     loadContracts();
-                } else { alert('Error saving contract'); }
-            } catch (err) { console.error(err); alert('Network error'); }
+                } else { await showCustomModal('Error saving contract'); }
+            } catch (err) { console.error(err); await showCustomModal('Network error'); }
         }
 
         function editContract(id) {
@@ -2293,8 +2352,8 @@
 
         async function importBackup(file) {
             if (!file) return;
-            const msg = currentLang === 'zh' ? '确定要覆盖所有本地数据吗？' : 'Are you sure? This will OVERWRITE all your data.';
-            if (!confirm(msg)) return;
+            const msg = currentLang === 'zh' ? '确定要覆盖所有本地数据吗？' : (currentLang === 'es' ? '¿Estás seguro? Esto SOBREESCRIBIRÁ todos tus datos.' : 'Are you sure? This will OVERWRITE all your data.');
+            if (!(await showCustomModal(msg, 'confirm'))) return;
             const formData = new FormData();
             formData.append('backup', file);
             try {
