@@ -671,7 +671,7 @@ app.get('/api/version', (req, res) => {
         const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
         res.json({ version: pkg.version });
     } catch (e) {
-        res.json({ version: '1.0.1' });
+        res.json({ version: '1.0.0' });
     }
 });
 
