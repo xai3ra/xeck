@@ -1086,7 +1086,7 @@
         <form class="slide-content" id="contractForm" onsubmit="submitContract(event)" oninput="saveDraft()">
             <div class="form-group">
                 <label data-i18n="lbl_title">Title</label>
-                <input type="text" class="form-control" name="title" required placeholder="e.g. Movistar Fiber 1GB">
+                <input type="text" id="contractTitle" class="form-control" name="title" data-i18n-placeholder="pl_title" placeholder="e.g. Movistar Fiber 1GB" required>
             </div>
             
             <div class="form-group" style="margin-top: 6px;">
@@ -1179,7 +1179,7 @@
                 days_rem: "days remaining", perm_ended: "Ended", status_active: "Active", no_perm: "No lock-in period",
                 msg_required: "Please fill this field.",
                 lbl_category: "Category", lbl_billing: "Billing Cycle", lbl_start_date: "Start Date",
-                lbl_contract_end: "Fecha de fin", lbl_perm_end: "Lock-in End Date", lbl_notes: "Notes",
+                lbl_contract_end: "End Date", lbl_perm_end: "Lock-in End Date", lbl_notes: "Notes",
                 lbl_no_fixed: "(leave blank if no end date)", lbl_lock_in: "(optional)", lbl_optional: "(optional)",
                 cat_utilities: "Services", cat_insurance: "Insurance", cat_mobile: "Mobile",
                 cat_subscription: "Subscription", cat_internet: "Internet", cat_other: "Other", cat_docs: "Documentation",
@@ -1191,7 +1191,7 @@
                 title_all_contracts: "All Contracts", sub_all_contracts: "Full list of your registered contracts.",
                 sub_analytics: "Breakdown of expenses and renewal timelines.",
                 tl_contract_details: "Contract Details", tl_monthly_cost: "Monthly Cost", tl_billing_cycle: "Billing Cycle", 
-                tl_start_date: "Start Date", tl_contract_end: "Fecha de fin",
+                tl_start_date: "Start Date", tl_contract_end: "End Date",
                 tl_documents: "Documents", tl_no_doc: "No documents attached.", tl_attach_doc: "Attach Document", 
                 tl_delete_contract: "Delete Contract", tl_rolling: "Rolling", tl_no_fixed_rolling: "No fixed end (rolling)",
                 tl_perm_ending_soon: "⚠ Lock-in Ending Soon", tl_lock_in_ends_in: "Lock-in ends in", 
@@ -1199,6 +1199,7 @@
                 tl_permanencia: "Lock-in", tl_ended_check: "Ended ✓", tl_notes_detail: "Notes", tl_renews: "Renews",
                 tl_spending_cat: "Spending by Category", tl_upcoming_90_days: "Upcoming Renewals (Next 90 days)", 
                 tl_no_data: "No data.", tl_no_upcoming_renewals: "No renewals in the next 90 days.",
+                tl_no_contracts: "No contracts yet. Click 'Add New' to begin.",
                 delete_confirm_title: "Delete Contract?",
                 delete_confirm_msg: "ATTENTION: This will permanently delete the contract directory and all attached files.",
                 btn_confirm: "Confirm",
@@ -1212,7 +1213,9 @@
                 msg_update_available: "A new version is available! Please wait for the download prompt.",
                 sync_status: "Syncing...", sync_local: "Local Storage Only", sync_cloud: "Connected to Drive",
                 sync_last: "Last sync", sync_failed: "Sync failed",
-                set_account_storage: "Account / Storage"
+                set_account_storage: "Account / Storage",
+                id_google_user: "Google User", id_connecting: "Connecting...", id_local_guest: "Guest",
+                pl_title: "e.g. Movistar Fiber 1GB"
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
@@ -1250,6 +1253,7 @@
                 tl_permanencia: "Permanencia", tl_ended_check: "Terminada ✓", tl_notes_detail: "Notas", tl_renews: "Renueva",
                 tl_spending_cat: "Gastos por Categoría", tl_upcoming_90_days: "Próximas Renov. (próximos 90 días)", 
                 tl_no_data: "Sin datos.", tl_no_upcoming_renewals: "No hay renovaciones en los próximos 90 días.",
+                tl_no_contracts: "No hay contratos todavía. Haz clic en 'Añadir nuevo' para empezar.",
                 delete_confirm_title: "¿Eliminar Contrato?",
                 delete_confirm_msg: "ATENCIÓN: Esta acción también eliminará permanentemente la carpeta del contrato y todos los archivos PDF/JPG adjuntos.",
                 btn_confirm: "Confirmar",
@@ -1263,7 +1267,9 @@
                 msg_update_available: "¡Hay una nueva versión disponible! Por favor, espera al mensaje de descarga.",
                 sync_status: "Sincronizando...", sync_local: "Solo Almacenamiento Local", sync_cloud: "Conectado a Drive",
                 sync_last: "Última sinc.", sync_failed: "Sinc. fallida",
-                set_account_storage: "Cuenta / Almacenamiento"
+                set_account_storage: "Cuenta / Almacenamiento",
+                id_google_user: "Usuario Google", id_connecting: "Conectando...", id_local_guest: "Invitado",
+                pl_title: "p. ej. Fibra Movistar 1GB"
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
@@ -1315,7 +1321,10 @@
                 set_version: "应用版本", lbl_current_version: "当前版本", btn_check_update: "检查更新",
                 msg_checking_update: "正在检查更新...", msg_latest_version: "您当前已是最新版本。",
                 msg_update_available: "发现新版本！请稍后并在弹出的窗口中确认下载。",
-                set_account_storage: "账号与存储"
+                set_account_storage: "账号与存储",
+                btn_logout: "退出登录 / 切换账号",
+                id_google_user: "谷歌用户", id_connecting: "待连接", id_local_guest: "本地访客",
+                pl_title: "例如：中国移动宽带 1000M"
             }
         };
 
@@ -1396,6 +1405,11 @@
                         const key = el.getAttribute('data-i18n');
                         if (translations[langCode][key]) el.innerText = translations[langCode][key];
                     });
+                    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                        const key = el.getAttribute('data-i18n-placeholder');
+                        if (translations[langCode][key]) el.placeholder = translations[langCode][key];
+                    });
+                    refreshValidationMessages(langCode);
                 }
 
                 // Trigger backend migration if language actually changed OR forced on startup
@@ -1598,7 +1612,7 @@
                 avatarEl.style.backgroundColor = '#4285F4';
                 
                 if (hasAuth) {
-                    const name = profileName || (currentLang === 'zh' ? '谷歌用户' : 'Google User');
+                    const name = profileName || i18n.id_google_user;
                     nameEl.innerText = name;
                     headNameEl.innerText = name;
                     emailEl.innerText = i18n.sync_cloud || 'Connected to Google Drive';
@@ -1612,7 +1626,7 @@
                     closeAllModals();
                     startDriveSync();
                 } else {
-                    const n = currentLang === 'zh' ? '待连接' : 'Connecting...';
+                    const n = i18n.id_connecting;
                     nameEl.innerText = n; headNameEl.innerText = n;
                     emailEl.innerHTML = `<span style="color:var(--text-secondary);">${i18n.sync_status || 'Waiting...'}</span> <a href="#" onclick="openLoginModal()" style="color:#4285F4;text-decoration:underline;font-size:0.65rem;margin-left:4px;">Login</a>`;
                 }
@@ -1623,7 +1637,7 @@
                 avatarEl.style.backgroundColor = '#000000';
                 
                 // Ignore profile name if it came from Google auth
-                const n = (!hasAuth && profileName) ? profileName : (currentLang === 'zh' ? '本地访客' : (currentLang === 'es' ? 'Invitado' : 'Guest'));
+                const n = (!hasAuth && profileName) ? profileName : i18n.id_local_guest;
                 nameEl.innerText = n;
                 headNameEl.innerText = n;
                 emailEl.innerText = i18n.sync_local || 'Local Storage Only';
