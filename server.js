@@ -703,13 +703,7 @@ app.post('/api/contracts', upload.array('document', 10), (req, res) => {
         let file_path = null;
         
         if (req.files && req.files.length > 0) {
-            if (isLocal) {
-                file_path = moveAndRenameFiles(req.files, category, title);
-            } else {
-                // Cloud mode: Keep in uploads folder
-                file_path = req.files.map(f => `uploads/${path.basename(f.path)}`).join(';');
-                console.log("[Mode] Cloud mode: Keeping files in uploads.");
-            }
+            file_path = moveAndRenameFiles(req.files, category, title);
         }
 
         db.run(
@@ -747,12 +741,8 @@ app.put('/api/contracts/:id', upload.array('document', 10), (req, res) => {
             let file_path = row.file_path;
 
             if (req.files && req.files.length > 0) {
-                if (isLocal) {
-                    file_path = moveAndRenameFiles(req.files, category || row.category, title || row.title);
-                } else {
-                    file_path = req.files.map(f => `uploads/${path.basename(f.path)}`).join(';');
-                }
-            } else if (isLocal && ((title && title !== row.title) || (category && category !== row.category))) {
+                file_path = moveAndRenameFiles(req.files, category || row.category, title || row.title);
+            } else if (((title && title !== row.title) || (category && category !== row.category))) {
                 const oldCat = sanitizePath(row.category || 'Other');
                 const oldTitle = sanitizePath(row.title);
                 const newCat = sanitizePath(category || row.category || 'Other');
@@ -1327,23 +1317,28 @@ async function triggerBackgroundSync() {
                     });
                 }
 
-                // 1.2 Sync PDF/Image file
-                const searchRes = await drive.files.list({
-                    q: `name = '${fileName}' and trashed = false`,
-                    fields: 'files(id, parents)'
-                });
+                // 1.2 Sync PDF/Image files
+                const filePaths = c.file_path.split(';').filter(p => p.trim());
+                for (const p of filePaths) {
+                    const fileName = path.basename(p);
+                    const searchRes = await drive.files.list({
+                        q: `name = '${fileName}' and '${titleId}' in parents and trashed = false`,
+                        fields: 'files(id)'
+                    });
 
-                if (searchRes.data.files.length === 0) {
-                    const absPath = path.join(DATA_DIR, c.file_path);
-                    if (fs.existsSync(absPath)) {
-                        await drive.files.create({
-                            requestBody: {
-                                name: fileName,
-                                parents: [titleId],
-                                appProperties: { id: c.id.toString(), title: c.title, category: c.category }
-                            },
-                            media: { body: fs.createReadStream(absPath) }
-                        });
+                    if (searchRes.data.files.length === 0) {
+                        const absPath = path.join(DATA_DIR, p);
+                        if (fs.existsSync(absPath)) {
+                            console.log(`[Sync] Uploading to Drive: ${fileName}`);
+                            await drive.files.create({
+                                requestBody: {
+                                    name: fileName,
+                                    parents: [titleId],
+                                    appProperties: { id: c.id.toString(), title: c.title, category: c.category }
+                                },
+                                media: { body: fs.createReadStream(absPath) }
+                            });
+                        }
                     }
                 }
             }
@@ -1372,77 +1367,27 @@ app.post('/api/sync', async (req, res) => {
                 const translatedCat = getTranslatedCategoryName(c.category || 'Other');
                 const cat = sanitizePath(translatedCat);
                 const title = sanitizePath(c.title || 'Untitled');
-                const fileName = path.basename(c.file_path);
-
-                // Create folder hierarchy
-                const catId = await getOrCreateFolder(drive, cat, rootId);
-                const titleId = await getOrCreateFolder(drive, title, catId);
-
-                // Find file by name under Xeck_Contracts recursively (searching for previous locations)
-                const searchRes = await drive.files.list({
-                    q: `name = '${fileName}' and trashed = false`,
-                    fields: 'files(id, parents)'
-                });
-
-                let cloudFileId = null;
-                let currentParentId = null;
-
-                if (searchRes.data.files.length > 0) {
-                    cloudFileId = searchRes.data.files[0].id;
-                    currentParentId = (searchRes.data.files[0].parents || [])[0];
-                }
-
-                // 1.1 Sync contract_metadata.json
-                const metadataFileName = 'contract_metadata.json';
-                const metadataSearch = await drive.files.list({
-                    q: `name = '${metadataFileName}' and '${titleId}' in parents and trashed = false`,
-                    fields: 'files(id)'
-                });
-                
-                const metadataContent = JSON.stringify({
-                    id: c.id, title: c.title, category: c.category,
-                    monthly_cost: c.monthly_cost, billing_cycle: c.billing_cycle,
-                    start_date: c.start_date, contract_end_date: c.contract_end_date,
-                    permanencia_end_date: c.permanencia_end_date, notes: c.notes
-                }, null, 2);
-
-                if (metadataSearch.data.files.length === 0) {
-                    await drive.files.create({
-                        requestBody: { name: metadataFileName, parents: [titleId] },
-                        media: { mimeType: 'application/json', body: metadataContent }
+                // 1.2 Sync PDF/Image files
+                const filePaths = c.file_path.split(';').filter(p => p.trim());
+                for (const p of filePaths) {
+                    const fileName = path.basename(p);
+                    const searchRes = await drive.files.list({
+                        q: `name = '${fileName}' and '${titleId}' in parents and trashed = false`,
+                        fields: 'files(id)'
                     });
-                } else {
-                    await drive.files.update({
-                        fileId: metadataSearch.data.files[0].id,
-                        media: { mimeType: 'application/json', body: metadataContent }
-                    });
-                }
 
-                // 1.2 Sync PDF/Image file
-                if (cloudFileId) {
-                    // If file exists but in WRONG folder (category changed), MOVE it
-                    if (currentParentId !== titleId) {
-                        console.log(`[Sync] Moving ${fileName} on Drive: from ${currentParentId} to ${titleId}`);
-                        await drive.files.update({
-                            fileId: cloudFileId,
-                            addParents: titleId,
-                            removeParents: currentParentId,
-                            fields: 'id, parents'
-                        });
-                    }
-                } else {
-                    // Upload new file
-                    const absPath = path.join(DATA_DIR, c.file_path);
-                    if (fs.existsSync(absPath)) {
-                        console.log(`[Sync] Uploading ${fileName} to Drive at ${cat}/${title}...`);
-                        await drive.files.create({
-                            requestBody: {
-                                name: fileName,
-                                parents: [titleId],
-                                appProperties: { id: c.id.toString(), title: c.title, category: c.category }
-                            },
-                            media: { body: fs.createReadStream(absPath) }
-                        });
+                    if (searchRes.data.files.length === 0) {
+                        const absPath = path.join(DATA_DIR, p);
+                        if (fs.existsSync(absPath)) {
+                            await drive.files.create({
+                                requestBody: {
+                                    name: fileName,
+                                    parents: [titleId],
+                                    appProperties: { id: c.id.toString(), title: c.title, category: c.category }
+                                },
+                                media: { body: fs.createReadStream(absPath) }
+                            });
+                        }
                     }
                 }
             }
