@@ -1161,8 +1161,19 @@ app.get('/api/check-updates', (req, res) => {
     console.log('[API] Check for updates requested');
     updateProgress = { percent: 0, bytesPerSecond: 0, transferred: 0, total: 0, status: 'checking' };
     updateBus.emit('check-update', (result) => {
+        result.isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
         res.json(result);
     });
+});
+
+app.post('/api/start-update', (req, res) => {
+    updateBus.emit('start-update');
+    res.json({ ok: true });
+});
+
+app.post('/api/install-update', (req, res) => {
+    updateBus.emit('install-update');
+    res.json({ ok: true });
 });
 
 app.get('/api/update-progress', (req, res) => {

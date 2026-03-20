@@ -66,7 +66,6 @@ let mainWindow;
 // Configure logging for autoUpdater
 autoUpdater.logger = console;
 autoUpdater.autoDownload = false; // We will ask the user before downloading
-autoUpdater.allowDifferentialDownload = false; // Disable differential updates for unsigned apps to prevent hangs (e.g. at 70%)
 
 function createWindow(port) {
   mainWindow = new BrowserWindow({
@@ -93,25 +92,28 @@ function createWindow(port) {
     mainWindow = null;
   });
 
-  // Check for updates once window is ready
-  mainWindow.once('ready-to-show', () => {
-    autoUpdater.checkForUpdatesAndNotify();
-  });
+  // Removed checkForUpdatesAndNotify to allow frontend to control updates
+  // mainWindow.once('ready-to-show', () => { autoUpdater.checkForUpdatesAndNotify(); });
 }
 
 // Update events
+updateBus.on('start-update', () => {
+    setUpdateProgress({ status: 'downloading', percent: 0 });
+    autoUpdater.downloadUpdate();
+});
+
+updateBus.on('install-update', () => {
+    // Attempt graceful restart for NSIS installer
+    if (mainWindow) mainWindow.close();
+    setImmediate(() => {
+        app.removeAllListeners('window-all-closed');
+        autoUpdater.quitAndInstall(true, true);
+    });
+});
+
 autoUpdater.on('update-available', (info) => {
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Update Available',
-    message: `A new version (${info.version}) of Xeck is available. Do you want to download it now?`,
-    buttons: ['Yes', 'Later']
-  }).then(result => {
-    if (result.response === 0) {
-      setUpdateProgress({ status: 'downloading', percent: 0 });
-      autoUpdater.downloadUpdate();
-    }
-  });
+  // Silent: UI handles it via API checking
+  console.log('[Updater] Update Available:', info.version);
 });
 
 autoUpdater.on('download-progress', (progressObj) => {
@@ -124,19 +126,9 @@ autoUpdater.on('download-progress', (progressObj) => {
   });
 });
 
-
 autoUpdater.on('update-downloaded', (info) => {
-  dialog.showMessageBox({
-    type: 'info',
-    title: 'Update Ready',
-    message: 'The update has been downloaded. It will be installed on restart. Restart now?',
-    buttons: ['Restart', 'Later']
-  }).then(result => {
-    if (result.response === 0) {
-      autoUpdater.quitAndInstall();
-    }
-  });
   setUpdateProgress({ status: 'ready', percent: 100 });
+  // Silent: UI handles prompting user to restart
 });
 
 

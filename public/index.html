@@ -962,19 +962,7 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         <span data-i18n="btn_check_update">Check for Updates</span>
                     </button>
-                    <p id="updateCheckMsg" style="font-size:0.75rem; color:var(--text-secondary); display:none;"></p>
-                    <div id="updateProgressContainer" style="display:none; margin-top:1rem; padding:1rem; background:var(--bg-surface); border:1px solid var(--border-light); border-radius:8px;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                            <span id="updateStatusText" style="font-size:0.75rem; font-weight:600;">Downloading...</span>
-                            <span id="updatePercentText" style="font-size:0.75rem; font-weight:700;">0%</span>
-                        </div>
-                        <div style="height:8px; background:#EEEEEE; border-radius:4px; overflow:hidden;">
-                            <div id="updateProgressBar" style="height:100%; width:0%; background:#10B981; transition:width 0.3s ease;"></div>
-                        </div>
-                        <p id="updateDownloadDetail" style="font-size:0.625rem; color:var(--text-tertiary); margin-top:0.5rem;"></p>
-                    </div>
-
-                </div>
+                    <p id="updateCheckMsg" style="font-size:0.75rem; color:var(--text-secondary); display:none;"></p>                </div>
             </div>
 
             <div class="settings-card">
@@ -1255,7 +1243,16 @@
                 pl_title: "e.g. Movistar Fiber 1GB",
                 btn_ok: "OK", btn_cancel: "Cancel",
                 title_documents: "Documents & IDs", tl_no_docs: "No documents yet.",
-                msg_restore_draft: "You have an unsaved draft. Continue from where you left off?"
+                msg_restore_draft: "You have an unsaved draft. Continue from where you left off?",
+                update_available_banner: "Update Available!",
+                update_download_now: "Download Now",
+                update_downloading: "Downloading update...",
+                update_download_complete: "Download complete! Restart to apply.",
+                update_download_failed: "Update download failed.",
+                update_installing: "Installing update...",
+                update_install_complete: "Installation complete! Restart to apply.",
+                update_install_failed: "Installation failed.",
+                update_restart_required: "Restart required to apply update."
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
@@ -1312,7 +1309,16 @@
                 pl_title: "p. ej. Fibra Movistar 1GB",
                 btn_ok: "Aceptar", btn_cancel: "Cancelar",
                 title_documents: "Documentos e IDs", tl_no_docs: "Todavía no hay documentos.",
-                msg_restore_draft: "Tienes un borrador sin terminar. ¿Deseas continuar?"
+                msg_restore_draft: "Tienes un borrador sin terminar. ¿Deseas continuar?",
+                update_available_banner: "¡Actualización disponible!",
+                update_download_now: "Descargar ahora",
+                update_downloading: "Descargando actualización...",
+                update_download_complete: "¡Descarga completa! Reinicia para aplicar.",
+                update_download_failed: "Fallo al descargar la actualización.",
+                update_installing: "Instalando actualización...",
+                update_install_complete: "¡Instalación completa! Reinicia para aplicar.",
+                update_install_failed: "Fallo en la instalación.",
+                update_restart_required: "Se requiere reiniciar para aplicar la actualización."
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
@@ -1370,7 +1376,16 @@
                 pl_title: "例如：中国移动宽带 1000M",
                 btn_ok: "确定", btn_cancel: "取消",
                 title_documents: "证件 & 文件", tl_no_docs: "暂无证件。",
-                msg_restore_draft: "有未完成的草稿，是否继续编辑？"
+                msg_restore_draft: "有未完成的草稿，是否继续编辑？",
+                update_available_banner: "有可用更新！",
+                update_download_now: "立即下载",
+                update_downloading: "正在下载更新...",
+                update_download_complete: "下载完成！重启以应用。",
+                update_download_failed: "更新下载失败。",
+                update_installing: "正在安装更新...",
+                update_install_complete: "安装完成！重启以应用。",
+                update_install_failed: "安装失败。",
+                update_restart_required: "需要重启以应用更新。"
             }
         };
 
@@ -1405,6 +1420,19 @@
             } catch(e) { console.error("Flatpickr init error:", e); }
         }
 
+        function updateAllStaticText(langCode) {
+            if (translations[langCode]) {
+                document.querySelectorAll('[data-i18n]').forEach(el => {
+                    const key = el.getAttribute('data-i18n');
+                    if (translations[langCode][key]) el.innerText = translations[langCode][key];
+                });
+                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                    const key = el.getAttribute('data-i18n-placeholder');
+                    if (translations[langCode][key]) el.placeholder = translations[langCode][key];
+                });
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             // 1. Fetch settings from server to get source-of-truth language
             let savedLang = localStorage.getItem('xeck_lang') || 'en';
@@ -1424,6 +1452,12 @@
             
             document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeAllModals(); });
 
+            // Setup global updates after 2s
+            setTimeout(() => { checkGlobalUpdates(); }, 2000);
+            
+            // Re-render based on current lang
+            updateAllStaticText(savedLang);
+            
             // Fetch and display current version
             fetch('/api/version')
                 .then(res => res.json())
@@ -1601,53 +1635,105 @@
                 if (data.updateAvailable) {
                     msg.innerText = i18n.msg_update_available;
                     msg.style.color = '#059669';
-                    // Start polling for progress since the native dialog will be shown
-                    startUpdateProgressPolling();
+                    checkGlobalUpdates(data); // Display global banner
                 } else if (data.error) {
                     msg.innerText = "Error: " + data.error;
                     msg.style.color = '#EF4444';
-                    btn.disabled = false;
                 } else {
                     msg.innerText = i18n.msg_latest_version;
                     msg.style.color = '#059669';
-                    btn.disabled = false;
                 }
             } catch (e) {
                 msg.innerText = "Error checking updates.";
                 msg.style.color = '#EF4444';
-                btn.disabled = false;
             }
+            btn.disabled = false;
         }
 
-        let updatePollingInterval = null;
-        function startUpdateProgressPolling() {
-            if (updatePollingInterval) return;
-            updatePollingInterval = setInterval(async () => {
+        // --- GLOBAL AUTO UPDATE LOGIC ---
+        let globalIsPortable = false;
+        let globalUpdateInterval = null;
+
+        async function checkGlobalUpdates(preData = null) {
+            try {
+                let data = preData;
+                if (!data) {
+                    const res = await fetch('/api/check-updates');
+                    data = await res.json();
+                }
+                if (data.updateAvailable) {
+                    globalIsPortable = !!data.isPortable;
+                    document.getElementById('globalUpdateBanner').style.display = 'flex';
+                    const text = document.getElementById('globalUpdateText');
+                    const btn = document.getElementById('globalUpdateBtn');
+                    
+                    if (globalIsPortable) {
+                        text.innerText = `Update v${data.version} available! Portable version cannot auto-update.`;
+                        btn.innerText = "Download from GitHub";
+                        btn.onclick = () => window.open('https://github.com/xai3ra/xeck/releases', '_blank');
+                    } else {
+                        text.innerText = `Update v${data.version} available!`;
+                        btn.innerText = "Download Now";
+                        btn.onclick = startGlobalUpdate;
+                        // Always start polling in case it was already downloading
+                        startGlobalUpdatePolling();
+                    }
+                }
+            } catch(e) { console.error('Global update check failed:', e); }
+        }
+
+        async function startGlobalUpdate() {
+            const btn = document.getElementById('globalUpdateBtn');
+            btn.disabled = true;
+            btn.innerText = "Starting...";
+            try {
+                await fetch('/api/start-update', { method: 'POST' });
+                startGlobalUpdatePolling();
+            } catch(e) { console.error(e); }
+        }
+
+        function startGlobalUpdatePolling() {
+            if (globalUpdateInterval) return;
+            const btn = document.getElementById('globalUpdateBtn');
+            const progressBox = document.getElementById('globalUpdateProgressBox');
+            
+            globalUpdateInterval = setInterval(async () => {
                 try {
                     const res = await fetch('/api/update-progress');
                     const data = await res.json();
                     
                     if (data.status === 'downloading' || data.status === 'ready') {
-                        document.getElementById('updateProgressContainer').style.display = 'block';
-                        document.getElementById('updateProgressBar').style.width = data.percent + '%';
-                        document.getElementById('updatePercentText').innerText = data.percent + '%';
+                        btn.style.display = 'none';
+                        progressBox.style.display = 'flex';
+                        document.getElementById('globalUpdateProgressBar').style.width = data.percent + '%';
+                        document.getElementById('globalUpdatePercent').innerText = data.percent + '%';
                         
                         if (data.status === 'ready') {
-                            document.getElementById('updateStatusText').innerText = "Update Ready";
-                            document.getElementById('updateDownloadDetail').innerText = "Restart the app to apply the update.";
-                            clearInterval(updatePollingInterval);
-                            updatePollingInterval = null;
-                        } else {
-                            document.getElementById('updateStatusText').innerText = "Downloading...";
-                            const mb = (m) => (m / (1024 * 1024)).toFixed(1) + 'MB';
-                            document.getElementById('updateDownloadDetail').innerText = `${mb(data.transferred)} / ${mb(data.total)} · ${(data.bytesPerSecond / 1024 / 1024).toFixed(1)} MB/s`;
+                            document.getElementById('globalUpdateText').innerText = "Update Ready to Install";
+                            progressBox.style.display = 'none';
+                            btn.style.display = 'block';
+                            btn.disabled = false;
+                            btn.innerText = "Restart & Install";
+                            btn.onclick = async () => {
+                                btn.innerText = "Restarting...";
+                                await fetch('/api/install-update', { method: 'POST' });
+                            };
+                            clearInterval(globalUpdateInterval);
                         }
+                    } else if (data.status === 'error') {
+                        document.getElementById('globalUpdateText').innerText = "Update Error: " + data.error;
+                        progressBox.style.display = 'none';
+                        btn.style.display = 'block';
+                        btn.innerText = "Retry";
+                        btn.disabled = false;
+                        btn.onclick = startGlobalUpdate;
+                        clearInterval(globalUpdateInterval);
+                        globalUpdateInterval = null;
                     }
-                } catch (e) {
-                    console.error('Progress poll error:', e);
-                }
+                } catch(e) { console.error('Progress poll error:', e); }
             }, 1000);
         }
+
 
 
         async function applyUserIdentity() {
