@@ -1569,6 +1569,46 @@
                     if (data.version) document.getElementById('currentVersionDisplay').innerText = data.version;
                 })
                 .catch(() => {});
+
+            // ── HEARTBEAT NOTIFICATION ENGINE ──────────────────────────
+            // A lightweight, no-background-process notification system.
+            // Runs only while the app is open, checks once on load and every 12 hours.
+            // Uses the Web Notification API (works in Electron natively).
+            async function checkExpiryNotifications() {
+                try {
+                    const contracts = await fetch('/api/contracts').then(r => r.json());
+                    if (!Array.isArray(contracts)) return;
+                    const today = new Date();
+                    const i18n = translations[currentLang] || translations['en'];
+
+                    contracts.forEach(c => {
+                        const checkDate = c.permanencia_end_date || c.contract_end_date;
+                        if (!checkDate) return;
+                        const d = parseDDMMYYYY(checkDate);
+                        if (!d) return;
+                        const daysLeft = Math.ceil((d - today) / 86400000);
+                        // Only notify for contracts expiring in exactly 60, 30, or 7 days range
+                        if (daysLeft > 0 && daysLeft <= 60) {
+                            if (window.Notification && Notification.permission === 'granted') {
+                                new Notification('Xeck — Contract Reminder', {
+                                    body: `"${c.title}" expires in ${daysLeft} days (${checkDate}).`,
+                                    icon: '/favicon.ico'
+                                });
+                            }
+                        }
+                    });
+                } catch(e) { /* silent fail */ }
+            }
+
+            // Request permission once, then start heartbeat
+            if (window.Notification) {
+                Notification.requestPermission().then(() => {
+                    // Check on load and every 12 hours
+                    checkExpiryNotifications();
+                    setInterval(checkExpiryNotifications, 12 * 60 * 60 * 1000);
+                });
+            }
+            // ─────────────────────────────────────────────────────────────
         });
 
         function switchTab(viewId) {
@@ -2091,9 +2131,9 @@
                 const cEnd = parseDDMMYYYY(c.contract_end_date);
                 const cDays = Math.ceil((cEnd - today) / 86400000);
                 const cDateStr = cEnd.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB', {day:'numeric',month:'short',year:'numeric'});
-                contractEndBlock = `<div class="detail-item"><span class="label">${i18n.tl_contract_end_date}</span><span class="value">${cDateStr}${cDays <= 30 && cDays > 0 ? ` <span style="color:#F97316;font-size:0.8rem;">(${cDays} ${(i18n.days_rem||'').split(' ')[0]})</span>` : ''}</span></div>`;
+                contractEndBlock = `<div class="detail-item"><span class="label">${i18n.tl_contract_end}</span><span class="value">${cDateStr}${cDays <= 30 && cDays > 0 ? ` <span style="color:#F97316;font-size:0.8rem;">(${cDays} ${(i18n.days_rem||'').split(' ')[0]})</span>` : ''}</span></div>`;
             } else {
-                contractEndBlock = `<div class="detail-item"><span class="label">${i18n.tl_contract_end_date}</span><span class="value" style="color:#6B7280;">${i18n.tl_no_fixed_rolling}</span></div>`;
+                contractEndBlock = `<div class="detail-item"><span class="label">${i18n.tl_contract_end}</span><span class="value" style="color:#6B7280;">${i18n.tl_no_fixed_rolling}</span></div>`;
             }
 
             // --- Document block ---
@@ -2593,38 +2633,33 @@
             setTimeout(() => modal.classList.add('show'), 10);
         }
 
-        function showBajaLetter(id) {
+        async function showBajaLetter(id) {
             const c = allContracts.find(x => x.id === id);
             if (!c) return;
-            const profileName = document.getElementById('profileNameInput')?.value || document.getElementById('profileName').innerText;
-            const today = new Date().toLocaleDateString('es-ES');
-            
-            const template = `[CIUDAD], a ${today}
 
-A la atención del Departamento de Bajas / Atención al Cliente,
-Referencia / Contrato: ${c.title}
-
-Estimados señores,
-
-Por la presente, yo, ${profileName && profileName !== 'Guest User' && profileName !== 'Local Storage Only' ? profileName : '[SU NOMBRE Y APELLIDOS]'}, con DNI/NIE [SU DNI/NIE], como titular del contrato de referencia que mantengo suscrito con su compañía, les comunico mi decisión irrevocable de DAR DE BAJA y cancelar el servicio asociado al mismo.
-
-Les ruego que dicha baja se haga efectiva de manera inmediata o, en su defecto, a la finalización del periodo de facturación en curso (o fecha de fin de permanencia, si aplicase, el cual finaliza el ${c.permanencia_end_date || c.contract_end_date || '[FECHA]'}), sin que proceda la prórroga automática del mismo.
-
-Asimismo, solicito expresamente la cancelación de mis datos personales de sus bases de datos a efectos comerciales, de acuerdo con lo establecido en la normativa vigente de Protección de Datos.
-
-Quedo a la espera de su confirmación por escrito de la tramitación de esta baja.
-
-Atentamente,
-
-Fdo.: ${profileName && profileName !== 'Guest User' && profileName !== 'Local Storage Only' ? profileName : '[SU NOMBRE Y APELLIDOS]'}
-DNI/NIE: [SU DNI/NIE]
-Firma: ________________________`;
-
-            document.getElementById('bajaLetterText').value = template;
+            // Open modal immediately with a loading state
+            const letterArea = document.getElementById('bajaLetterText');
+            letterArea.value = '⏳ Generating AI cancellation letter...';
             document.getElementById('globalOverlay').style.display = 'block';
             const modal = document.getElementById('bajaModal');
             modal.style.display = 'block';
             setTimeout(() => modal.classList.add('show'), 10);
+
+            try {
+                const res = await fetch('/api/ai-baja', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contractId: c.id, lang: currentLang })
+                });
+                const data = await res.json();
+                if (!res.ok || data.error) {
+                    letterArea.value = 'Error: ' + (data.error || 'AI not configured. Please configure AI in Settings first.');
+                    return;
+                }
+                letterArea.value = data.letter || '';
+            } catch(e) {
+                letterArea.value = 'Network error: ' + e.message;
+            }
         }
 
         function copyBajaLetter() {

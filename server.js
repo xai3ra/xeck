@@ -478,6 +478,108 @@ IMPORTANT:
     });
 });
 
+// ─── AI BAJA LETTER GENERATOR ─────────────────────────────────────────────────
+app.post('/api/ai-baja', async (req, res) => {
+    const { contractId, lang } = req.body;
+
+    db.all(`SELECT key, value FROM settings`, [], async (err, settingsRows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const cfg = {};
+        settingsRows.forEach(r => { cfg[r.key] = r.value; });
+
+        const provider = cfg.ai_provider || '';
+        const apiKey = cfg.ai_api_key || '';
+        const aiModel = cfg.ai_model || '';
+        const profileName = cfg.profile_name || '';
+
+        if (!provider || !apiKey) {
+            return res.status(400).json({ error: 'AI not configured' });
+        }
+
+        db.get(`SELECT * FROM contracts WHERE id = ?`, [contractId], async (err, contract) => {
+            if (err || !contract) return res.status(404).json({ error: 'Contract not found' });
+
+            // Read contract document if available
+            let documentText = '';
+            if (contract.file_path) {
+                const filePaths = contract.file_path.split(';').filter(p => p.trim());
+                for (const fp of filePaths) {
+                    try {
+                        const absPath = path.join(dataDir, fp.trim());
+                        if (fs.existsSync(absPath) && absPath.toLowerCase().endsWith('.pdf')) {
+                            const buffer = fs.readFileSync(absPath);
+                            const { PDFParse } = require('pdf-parse');
+                            const parser = new PDFParse({ data: buffer });
+                            const pdfData = await parser.getText();
+                            await parser.destroy();
+                            documentText += `\n--- ${path.basename(fp)} ---\n${(pdfData.text || '').slice(0, 3000)}\n`;
+                        }
+                    } catch (e) { /* skip unreadable files */ }
+                }
+            }
+
+            const outputLang = lang === 'zh' ? 'Chinese (Simplified)' : lang === 'es' ? 'Spanish' : 'English';
+            const today = new Date().toLocaleDateString('es-ES');
+
+            const bajaPrompt = `You are a legal document specialist. Generate an official, formal contract cancellation letter ("Carta de Baja" or equivalent) for the following contract.
+
+CONTRACT INFORMATION:
+- Title: ${contract.title}
+- Category: ${contract.category}
+- Monthly Cost: €${contract.monthly_cost}
+- Start Date: ${contract.start_date || 'Unknown'}
+- Contract End Date: ${contract.contract_end_date || 'Not specified'}
+- Lock-in End Date: ${contract.permanencia_end_date || 'None'}
+- Notes: ${contract.notes || 'None'}
+- Policy/Reference from notes: Look for any policy number, reference, or contract ID in the notes.
+${documentText ? `\nCONTRACT DOCUMENT CONTENT (extracted text):\n${documentText}` : ''}
+
+LETTER REQUIREMENTS:
+1. Write a fully formal, professional cancellation letter in ${outputLang}.
+2. Use the holder name: ${profileName || '[YOUR NAME]'}
+3. Today's date: ${today}
+4. Include: formal salutation, clear cancellation statement, effective date request, data protection request (GDPR/LOPD), confirmation request.
+5. Extract from the document or notes: provider company name, customer reference/policy number, customer service address if found.
+6. If the language is Spanish, use formal "usted" form throughout.
+7. Output ONLY the letter text, no explanation, no markdown formatting. Start directly with the place and date.`;
+
+            try {
+                let letterText = '';
+                if (provider === 'openai' || provider === 'nvidia') {
+                    const baseUrl = provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1' : 'https://api.openai.com/v1';
+                    const r = await fetch(`${baseUrl}/chat/completions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                        body: JSON.stringify({ model: aiModel || 'gpt-4o', messages: [{ role: 'user', content: bajaPrompt }] })
+                    });
+                    const d = await r.json();
+                    letterText = d.choices?.[0]?.message?.content || '';
+                } else if (provider === 'gemini') {
+                    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: bajaPrompt }] }] })
+                    });
+                    const d = await r.json();
+                    letterText = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                } else if (provider === 'claude') {
+                    const r = await fetch('https://api.anthropic.com/v1/messages', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+                        body: JSON.stringify({ model: aiModel || 'claude-3-5-sonnet-20241022', messages: [{ role: 'user', content: bajaPrompt }], max_tokens: 1500 })
+                    });
+                    const d = await r.json();
+                    letterText = d.content?.[0]?.text || '';
+                }
+                res.json({ letter: letterText });
+            } catch (err) {
+                res.status(500).json({ error: err.message });
+            }
+        });
+    });
+});
+
+
 // ─── AI CONTRACT ANALYSIS ────────────────────────────────────────────────────────────
 app.post('/api/analyze-contract', analyzeUpload.array('document', 10), async (req, res) => {
     if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files provided' });
