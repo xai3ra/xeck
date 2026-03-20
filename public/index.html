@@ -1205,47 +1205,51 @@
         </div>
     </div>
 
-    <!-- Baja Letter Modal -->
-    <div id="bajaModal" style="max-width: 660px; width: 95%; position:relative; z-index: 10005;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+    <!-- Baja Letter Slide-Over Panel -->
+    <aside class="slide-over" id="bajaModal">
+        <div class="slide-header">
             <div>
-                <h2 class="text-heading-md" style="margin:0;" data-i18n="baja_title">Carta de Baja</h2>
-                <p style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0 0;" data-i18n="baja_sub">AI will generate an official cancellation letter in your selected language.</p>
+                <span class="text-micro-caps" data-i18n="baja_title">Cancellation Letter</span>
+                <p style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;" data-i18n="baja_sub">AI will generate an official cancellation letter.</p>
             </div>
-            <button onclick="closeAllModals()" class="close-btn" type="button"
-                style="margin-left:1rem;">
+            <button class="close-btn" onclick="closeAllModals()" type="button">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
-        
-        <div id="bajaEmptyState" style="text-align:center;padding:2rem 1rem;border:2px dashed var(--border-color);border-radius:12px;margin-bottom:1rem;background:var(--bg-secondary,#F9FAFB);">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="40" height="40" style="margin-bottom:0.75rem;opacity:0.4;color:var(--text-tertiary);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-            <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:1rem;" data-i18n="baja_ai_ready">Click the button below to have AI read the contract and write an official cancellation letter.</p>
-            <button class="btn-primary" onclick="generateBajaWithAI()" id="bajaGenerateBtn"
-                style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.6rem 1.5rem;">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                <span data-i18n="baja_generate_btn">✨ Generate with AI</span>
-            </button>
-        </div>
-        
-        <div id="bajaResultState" style="display:none;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
-                <span style="font-size:0.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Generated Letter</span>
-                <button class="btn-secondary" onclick="regenerateBaja()" style="font-size:0.7rem;padding:4px 10px;">
-                    ↺ <span data-i18n="baja_regenerate">Regenerate</span>
+
+        <div class="slide-content" style="gap:1rem;">
+            <!-- Empty state: prompt user to generate -->
+            <div id="bajaEmptyState" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1rem;border:2px dashed var(--border-light);border-radius:12px;text-align:center;background:var(--bg-secondary,#F9FAFB);">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="40" height="40" style="margin-bottom:0.75rem;opacity:0.35;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:1.25rem;line-height:1.5;" data-i18n="baja_ai_ready">Click the button to have AI read the contract and write an official cancellation letter.</p>
+                <button class="btn-primary" onclick="generateBajaWithAI()" id="bajaGenerateBtn"
+                    style="display:inline-flex;align-items:center;gap:0.5rem;width:auto;padding:0.65rem 1.5rem;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    <span data-i18n="baja_generate_btn">✨ Generate with AI</span>
                 </button>
             </div>
-            <textarea id="bajaLetterText" class="form-control" style="height: 280px; resize: vertical; font-family: 'Georgia', serif; font-size: 0.8rem; line-height: 1.6;"></textarea>
+
+            <!-- Result state: letter textarea -->
+            <div id="bajaResultState" style="display:none;flex:1;display:none;flex-direction:column;gap:0.75rem;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="font-size:0.7rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-secondary);">Generated Letter</span>
+                    <button class="close-btn" onclick="regenerateBaja()" style="width:auto;padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:600;">
+                        &#8635; <span data-i18n="baja_regenerate">Regenerate</span>
+                    </button>
+                </div>
+                <textarea id="bajaLetterText" class="form-control" style="flex:1;min-height:320px;resize:vertical;font-family:'Georgia',serif;font-size:0.8125rem;line-height:1.7;"></textarea>
+            </div>
+
+            <!-- Footer actions -->
+            <div style="margin-top:auto;padding-top:1rem;border-top:1px solid var(--border-light);display:flex;gap:0.75rem;">
+                <button class="btn-secondary" style="flex:1;justify-content:center;" onclick="closeAllModals()" data-i18n="btn_cancel">Cancel</button>
+                <button class="btn-primary" id="bajaCopyBtn" style="flex:1;justify-content:center;display:none;" onclick="copyBajaLetter()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14" style="margin-right:5px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                    <span data-i18n="baja_copy">Copy Letter</span>
+                </button>
+            </div>
         </div>
-        
-        <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">
-            <button class="btn-secondary" onclick="closeAllModals()" data-i18n="btn_cancel">Cancel</button>
-            <button class="btn-primary" style="background-color:#3B82F6;padding:10px 20px;" onclick="copyBajaLetter()" id="bajaCopyBtn" style="display:none;">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" style="margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                <span data-i18n="baja_copy">Copy Letter</span>
-            </button>
-        </div>
-    </div>
+    </aside>
 
     <!-- Add Contract Panel -->
     <aside class="slide-over" id="addModal">
@@ -1699,22 +1703,37 @@
             }
         }
 
+        function bajaResultShow() {
+            document.getElementById('bajaEmptyState').style.display = 'none';
+            document.getElementById('bajaResultState').style.display = 'flex';
+            document.getElementById('bajaCopyBtn').style.display = 'flex';
+        }
+
         function testNotification() {
-            const i18n = translations[currentLang] || translations['en'];
-            if (!window.Notification) {
-                alert('Notifications not supported in this environment.');
-                return;
-            }
-            Notification.requestPermission().then(perm => {
-                if (perm !== 'granted') {
-                    alert('Notification permission denied. Please allow notifications.');
-                    return;
-                }
-                new Notification('Xeck — Test Reminder ✅', {
-                    body: `"Caser Seguro Hogar" expires in 7 days. This is a test notification.`,
+            // In Electron, Notification permission is auto-granted.
+            // We try both approaches to ensure it works.
+            try {
+                const n = new Notification('Xeck — Test ✅', {
+                    body: 'Reminder system is working! Your contract reminders will appear like this.',
                     icon: '/favicon.ico'
                 });
-            });
+                n.onclick = () => {};
+            } catch(e) {
+                // Fallback: request permission first
+                if (window.Notification) {
+                    Notification.requestPermission().then(p => {
+                        if (p === 'granted') {
+                            new Notification('Xeck — Test ✅', {
+                                body: 'Reminder system is working!',
+                            });
+                        } else {
+                            alert('Please allow notifications in your system settings.');
+                        }
+                    });
+                } else {
+                    alert('Notifications are not supported in this view.');
+                }
+            }
         }
 
         function switchTab(viewId) {
@@ -2804,17 +2823,17 @@
             _bajaContractId = id;
             const c = allContracts.find(x => x.id === id);
             if (!c) return;
-            const i18n = translations[currentLang] || translations['en'];
 
-            // Reset modal to empty state
-            document.getElementById('bajaEmptyState').style.display = 'block';
+            // Reset panel to empty state
+            document.getElementById('bajaEmptyState').style.display = 'flex';
             document.getElementById('bajaResultState').style.display = 'none';
             document.getElementById('bajaCopyBtn').style.display = 'none';
             document.getElementById('bajaLetterText').value = '';
 
+            // Open as slide-over (same pattern as addModal / detailModal)
             document.getElementById('globalOverlay').style.display = 'block';
             const modal = document.getElementById('bajaModal');
-            modal.style.display = 'block';
+            modal.style.display = 'flex';
             setTimeout(() => modal.classList.add('show'), 10);
         }
 
@@ -2839,9 +2858,7 @@
                     return;
                 }
                 document.getElementById('bajaLetterText').value = data.letter || '';
-                document.getElementById('bajaEmptyState').style.display = 'none';
-                document.getElementById('bajaResultState').style.display = 'block';
-                document.getElementById('bajaCopyBtn').style.display = 'flex';
+                bajaResultShow();
             } catch(e) {
                 alert('Network error: ' + e.message);
             } finally {
@@ -2851,7 +2868,7 @@
         }
 
         function regenerateBaja() {
-            document.getElementById('bajaEmptyState').style.display = 'block';
+            document.getElementById('bajaEmptyState').style.display = 'flex';
             document.getElementById('bajaResultState').style.display = 'none';
             document.getElementById('bajaCopyBtn').style.display = 'none';
             document.getElementById('bajaLetterText').value = '';
