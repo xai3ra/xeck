@@ -66,6 +66,7 @@ let mainWindow;
 // Configure logging for autoUpdater
 autoUpdater.logger = console;
 autoUpdater.autoDownload = false; // We will ask the user before downloading
+autoUpdater.allowDifferentialDownload = false; // Disable differential updates for unsigned apps to prevent hangs (e.g. at 70%)
 
 function createWindow(port) {
   mainWindow = new BrowserWindow({
