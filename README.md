@@ -1,46 +1,8 @@
 # Xeck — Contract & Document Management Assistant
 
-[简体中文](#简体中文) | [English](#english) | [Español](#español)
+ [English](#english) | [Español](#español) | [简体中文](#简体中文)
 
 ---
-
-<a name="简体中文"></a>
-## 🇨🇳 简体中文
-
-**Xeck** 是一款私人合同管理桌面应用。支持本地存储或 Google Drive 云端同步，内置 AI 自动分析合同文件。
-
-### 📥 下载安装
-1. 前往 [GitHub Releases](https://github.com/xai3ra/xeck/releases) 页面
-2. 下载最新版本的 `Xeck.exe` 或 `Xeck Portable.exe`
-3. 双击运行，如出现 Windows SmartScreen 提示，点击"**更多信息**" → "**仍要运行**"
-
-### 🗂️ 存储模式选择
-首次启动时，应用会让你选择存储方式：
-- **🖥️ 本地存储**：无需登录，数据完全保存在本机，100% 私密。
-- **☁️ Google Drive 同步**：通过 Google 账号登录，数据同步到 Google Drive，支持多设备。
-
-### ➕ 添加合同与证件
-- **添加合同**：点击"添加新合同 +"，填写标题、月费、分类、日期等，可上传附件。
-- **添加证件**：分类选择"**证件 (Documentation)**"，月费会自动设为 **0**。证件会显示在主界面底部的独立区域。
-
-### 🏷️ 分类说明
-- **水电煤 (Utilities)**：电费、水费、天然气等。
-- **保险 (Insurance)**：保单、各类保险。
-- **通信 (Mobile/Internet)**：电话套餐、宽带。
-- **订阅 (Subscription)**：流媒体、健身房、软件订阅。
-- **证件 (Documentation)**：护照、身份证、驾照（费用为 0）。
-
-### 🤖 AI 智能分析
-上传文件后点击 "**✨ 使用 AI 分析**"，系统会自动识别并提取：标题、实际月费（排除融资/折扣干扰）、分类及到期时间。
-> *注：需在设置中配置 AI API Key。*
-
-### ⚙️ 设置与数据
-- **AI 助手**：配置 OpenAI/Gemini/Claude/NVIDIA 密钥。
-- **数据管理**：支持一键导出/导入 ZIP 备份。
-- **语言**：支持中、英、西实时切换。
-
----
-
 <a name="english"></a>
 ## 🇺🇸 English
 
@@ -119,3 +81,40 @@ Tras subir un archivo, pulsa en "**✨ Analizar con IA**". La IA extraerá autom
 - We recommend using **Settings → Export Backup** regularly.
 - In Google Drive mode, data is synced automatically.
 - For Local mode, data is stored in the user profile directory.
+
+---
+
+<a name="简体中文"></a>
+## 🇨🇳 简体中文
+
+**Xeck** 是一款私人合同管理桌面应用。支持本地存储或 Google Drive 云端同步，内置 AI 自动分析合同文件。
+
+### 📥 下载安装
+1. 前往 [GitHub Releases](https://github.com/xai3ra/xeck/releases) 页面
+2. 下载最新版本的 `Xeck.exe` 或 `Xeck Portable.exe`
+3. 双击运行，如出现 Windows SmartScreen 提示，点击"**更多信息**" → "**仍要运行**"
+
+### 🗂️ 存储模式选择
+首次启动时，应用会让你选择存储方式：
+- **🖥️ 本地存储**：无需登录，数据完全保存在本机，100% 私密。
+- **☁️ Google Drive 同步**：通过 Google 账号登录，数据同步到 Google Drive，支持多设备。
+
+### ➕ 添加合同与证件
+- **添加合同**：点击"添加新合同 +"，填写标题、月费、分类、日期等，可上传附件。
+- **添加证件**：分类选择"**证件 (Documentation)**"，月费会自动设为 **0**。证件会显示在主界面底部的独立区域。
+
+### 🏷️ 分类说明
+- **水电煤 (Utilities)**：电费、水费、天然气等。
+- **保险 (Insurance)**：保单、各类保险。
+- **通信 (Mobile/Internet)**：电话套餐、宽带。
+- **订阅 (Subscription)**：流媒体、健身房、软件订阅。
+- **证件 (Documentation)**：护照、身份证、驾照（费用为 0）。
+
+### 🤖 AI 智能分析
+上传文件后点击 "**✨ 使用 AI 分析**"，系统会自动识别并提取：标题、实际月费（排除融资/折扣干扰）、分类及到期时间。
+> *注：需在设置中配置 AI API Key。*
+
+### ⚙️ 设置与数据
+- **AI 助手**：配置 OpenAI/Gemini/Claude/NVIDIA 密钥。
+- **数据管理**：支持一键导出/导入 ZIP 备份。
+- **语言**：支持中、英、西实时切换。
