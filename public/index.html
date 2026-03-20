@@ -1720,7 +1720,15 @@
                     title: 'Xeck — Test ✅', 
                     body: 'Reminder system is working! Your contract reminders will appear like this.' 
                 })
-            }).catch(e => console.error('Test notification failed:', e));
+            })
+            .then(res => res.json())
+            .then(data => {
+                alert('¡Se ha enviado la señal de notificación! Si no ves un banner con aviso de Windows en la esquina de la pantalla, por favor comprueba que el "Asistente de concentración" (Focus Assist) o "No Molestar" de Windows esté INACTIVO.');
+            })
+            .catch(e => {
+                alert('Error al enviar la notificación: ' + e.message);
+                console.error('Test notification failed:', e);
+            });
         }
 
         function switchTab(viewId) {

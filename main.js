@@ -140,7 +140,13 @@ autoUpdater.on('error', (err) => {
 
 updateBus.on('show-notification', ({ title, body }) => {
     if (Notification.isSupported()) {
-        new Notification({ title, body }).show();
+        new Notification({ 
+            title, 
+            body,
+            icon: path.join(__dirname, 'public', 'favicon.ico')
+        }).show();
+    } else {
+        dialog.showMessageBox({ type: 'info', title, message: body });
     }
 });
 
