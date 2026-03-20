@@ -1,7 +1,7 @@
 const { app, BrowserWindow, dialog, Menu, shell, Notification } = require('electron');
+if (process.platform === 'win32') app.setAppUserModelId('com.xeck.app');
 Menu.setApplicationMenu(null);
 const path = require('path');
-
 // Set data directory to a writable location for the packaged app
 // This must be set BEFORE requiring ./server
 process.env.XECK_DATA_DIR = app.getPath('userData');

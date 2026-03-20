@@ -579,6 +579,12 @@ LETTER REQUIREMENTS:
     });
 });
 
+// ─── NOTIFICATION TRIGGER ─────────────────────────────────────
+app.post('/api/notify', express.json(), (req, res) => {
+    const { title, body } = req.body;
+    updateBus.emit('show-notification', { title, body });
+    res.json({ success: true });
+});
 
 // ─── AI CONTRACT ANALYSIS ────────────────────────────────────────────────────────────
 app.post('/api/analyze-contract', analyzeUpload.array('document', 10), async (req, res) => {
