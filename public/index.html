@@ -966,7 +966,26 @@
                     <h1 class="text-heading-lg" data-i18n="nav_notifications">Notifications</h1>
                     <p style="font-size:0.875rem;color:var(--text-secondary);" data-i18n="notif_sub">Contracts expiring within the next 60 days.</p>
                 </div>
+                <button class="btn-secondary" onclick="testNotification()" style="font-size:0.8rem;padding:6px 14px;display:flex;align-items:center;gap:6px;">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                    <span data-i18n="notif_test_btn">Test Notification</span>
+                </button>
             </header>
+            <!-- Notification settings -->
+            <div style="display:flex;align-items:center;gap:1.5rem;padding:0.75rem 1rem;background:var(--bg-secondary,#F9FAFB);border-radius:10px;margin-bottom:1rem;flex-wrap:wrap;">
+                <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8125rem;font-weight:600;cursor:pointer;">
+                    <input type="checkbox" id="notifEnabled" onchange="saveNotifSettings()" style="width:16px;height:16px;accent-color:#10B981;">
+                    <span data-i18n="notif_enable">Enable desktop reminders</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8125rem;cursor:pointer;">
+                    <input type="checkbox" id="notif30d" onchange="saveNotifSettings()" checked style="width:16px;height:16px;accent-color:#F59E0B;">
+                    <span data-i18n="notif_30d">30 days before</span>
+                </label>
+                <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.8125rem;cursor:pointer;">
+                    <input type="checkbox" id="notif7d" onchange="saveNotifSettings()" checked style="width:16px;height:16px;accent-color:#EF4444;">
+                    <span data-i18n="notif_7d">7 days before</span>
+                </label>
+            </div>
             <div id="notificationsList" class="list-container">
                 <!-- Populated by renderNotifications() -->
             </div>
@@ -1187,8 +1206,7 @@
     </div>
 
     <!-- Baja Letter Modal -->
-    <div id="bajaModal" style="max-width: 660px; width: 95%;"
-         style="display:none;">
+    <div id="bajaModal" style="max-width: 660px; width: 95%; position:relative; z-index: 10005;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
             <div>
                 <h2 class="text-heading-md" style="margin:0;" data-i18n="baja_title">Carta de Baja</h2>
@@ -1386,7 +1404,9 @@
                 baja_title: "Cancellation Letter", baja_sub: "AI will generate an official cancellation letter in your selected language.",
                 baja_ai_ready: "Click the button below to have AI read the contract and write an official cancellation letter.",
                 baja_generate_btn: "✨ Generate with AI", baja_generating: "Generating...", baja_regenerate: "Regenerate", baja_copy: "Copy Letter",
-                notif_sub: "Contracts expiring within the next 60 days.", notif_heartbeat: "App checks expiry every 12 hours while open."
+                notif_sub: "Contracts expiring within the next 60 days.", notif_heartbeat: "App checks expiry every 12 hours while open.",
+                notif_enable: "Enable desktop reminders", notif_30d: "30 days before", notif_7d: "7 days before",
+                notif_test_btn: "Test Notification"
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes", nav_notifications: "Notificaciones",
@@ -1456,7 +1476,9 @@
                 baja_title: "Carta de Baja", baja_sub: "La IA generará una carta de cancelación oficial en tu idioma.",
                 baja_ai_ready: "Pulsa el botón para que la IA lea el contrato y redacte la carta de baja oficial.",
                 baja_generate_btn: "✨ Generar con IA", baja_generating: "Generando...", baja_regenerate: "Volver a generar", baja_copy: "Copiar carta",
-                notif_sub: "Contratos que vencen en los próximos 60 días.", notif_heartbeat: "La app comprueba el vencimiento cada 12 horas mientras está abierta."
+                notif_sub: "Contratos que vencen en los próximos 60 días.", notif_heartbeat: "La app comprueba el vencimiento cada 12 horas mientras está abierta.",
+                notif_enable: "Activar recordatorios de escritorio", notif_30d: "30 días antes", notif_7d: "7 días antes",
+                notif_test_btn: "Probar notificación"
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置", nav_notifications: "提醒",
@@ -1527,7 +1549,9 @@
                 baja_title: "申请取消合同", baja_sub: "AI 会阅读合同内容并用您选择的语言生成正式的解约申请函。",
                 baja_ai_ready: "点击下方按钮，由 AI 读取合同并起草正式解约函。",
                 baja_generate_btn: "✨ 用 AI 生成", baja_generating: "生成中...", baja_regenerate: "重新生成", baja_copy: "复制函件",
-                notif_sub: "未来 60 天内即将到期的合同。", notif_heartbeat: "程序开启时每 12 小时自动检查到期情况。"
+                notif_sub: "未来 60 天内即将到期的合同。", notif_heartbeat: "程序开启时每 12 小时自动检查到期情况。",
+                notif_enable: "开启桂面提醒", notif_30d: "提前 30 天提醒", notif_7d: "提前 7 天提醒",
+                notif_test_btn: "测试提醒"
             }
         };
 
@@ -1609,15 +1633,28 @@
                 .catch(() => {});
 
             // ── HEARTBEAT NOTIFICATION ENGINE ──────────────────────────
-            // A lightweight, no-background-process notification system.
-            // Runs only while the app is open, checks once on load and every 12 hours.
-            // Uses the Web Notification API (works in Electron natively).
+            function loadNotifSettings() {
+                const s = JSON.parse(localStorage.getItem('xeck_notif_settings') || '{}');
+                const en = document.getElementById('notifEnabled');
+                const n30 = document.getElementById('notif30d');
+                const n7 = document.getElementById('notif7d');
+                if (en) en.checked = s.enabled ?? false;
+                if (n30) n30.checked = s.at30d ?? true;
+                if (n7) n7.checked = s.at7d ?? true;
+            }
+            loadNotifSettings();
+
             async function checkExpiryNotifications() {
+                const s = JSON.parse(localStorage.getItem('xeck_notif_settings') || '{}');
+                if (!s.enabled) return; // User opted out
+                const at30 = s.at30d ?? true;
+                const at7 = s.at7d ?? true;
+                const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
                 try {
                     const contracts = await fetch('/api/contracts').then(r => r.json());
                     if (!Array.isArray(contracts)) return;
                     const today = new Date();
-                    const i18n = translations[currentLang] || translations['en'];
 
                     contracts.forEach(c => {
                         const checkDate = c.permanencia_end_date || c.contract_end_date;
@@ -1625,14 +1662,18 @@
                         const d = parseDDMMYYYY(checkDate);
                         if (!d) return;
                         const daysLeft = Math.ceil((d - today) / 86400000);
-                        // Only notify for contracts expiring in exactly 60, 30, or 7 days range
-                        if (daysLeft > 0 && daysLeft <= 60) {
-                            if (window.Notification && Notification.permission === 'granted') {
-                                new Notification('Xeck — Contract Reminder', {
-                                    body: `"${c.title}" expires in ${daysLeft} days (${checkDate}).`,
-                                    icon: '/favicon.ico'
-                                });
-                            }
+                        const shouldFire = (at30 && daysLeft > 0 && daysLeft <= 30) || (at7 && daysLeft > 0 && daysLeft <= 7);
+                        if (!shouldFire) return;
+
+                        const notifKey = `xeck_notif_fired_${c.id}_${todayKey}`;
+                        if (localStorage.getItem(notifKey)) return; // Already fired today
+                        
+                        if (window.Notification && Notification.permission === 'granted') {
+                            new Notification('Xeck — Contract Expiry', {
+                                body: `"${c.title}" expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} (${checkDate}).`,
+                                icon: '/favicon.ico'
+                            });
+                            localStorage.setItem(notifKey, '1');
                         }
                     });
                 } catch(e) { /* silent fail */ }
@@ -1641,13 +1682,40 @@
             // Request permission once, then start heartbeat
             if (window.Notification) {
                 Notification.requestPermission().then(() => {
-                    // Check on load and every 12 hours
                     checkExpiryNotifications();
                     setInterval(checkExpiryNotifications, 12 * 60 * 60 * 1000);
                 });
             }
             // ─────────────────────────────────────────────────────────────
         });
+
+        function saveNotifSettings() {
+            const en = document.getElementById('notifEnabled')?.checked ?? false;
+            const at30 = document.getElementById('notif30d')?.checked ?? true;
+            const at7 = document.getElementById('notif7d')?.checked ?? true;
+            localStorage.setItem('xeck_notif_settings', JSON.stringify({ enabled: en, at30d: at30, at7d: at7 }));
+            if (en && window.Notification && Notification.permission !== 'granted') {
+                Notification.requestPermission();
+            }
+        }
+
+        function testNotification() {
+            const i18n = translations[currentLang] || translations['en'];
+            if (!window.Notification) {
+                alert('Notifications not supported in this environment.');
+                return;
+            }
+            Notification.requestPermission().then(perm => {
+                if (perm !== 'granted') {
+                    alert('Notification permission denied. Please allow notifications.');
+                    return;
+                }
+                new Notification('Xeck — Test Reminder ✅', {
+                    body: `"Caser Seguro Hogar" expires in 7 days. This is a test notification.`,
+                    icon: '/favicon.ico'
+                });
+            });
+        }
 
         function switchTab(viewId) {
             try {
@@ -2258,7 +2326,7 @@
                     ${contractEndBlock}
                 </div>
                 ${permBlock}
-                ${c.notes ? `<div><span class="date-label">${i18n.tl_notes_detail}</span><p style="font-size:0.875rem;line-height:1.6;">${c.notes}</p></div>` : ''}
+                ${c.notes ? `<div><span class="date-label">${i18n.tl_notes_detail}</span><p style="font-size:0.875rem;line-height:1.6;white-space:pre-line;">${c.notes}</p></div>` : ''}
                 <div>
                     <span class="date-label" style="display:block;margin-bottom:8px;">${i18n.tl_documents}</span>
                     ${docBlock}
@@ -2566,7 +2634,9 @@
                 if (cEnd) {
                     const dC = Math.ceil((cEnd - today) / 86400000);
                     const cStr = cEnd.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB',{day:'numeric',month:'short',year:'numeric'});
-                    const label = dC <= 60 && dC > 0 ? `<span style="color:#F97316;font-weight:800;">${i18n.tl_renews} ${cStr}</span>` : cStr;
+                    const label = dC <= 60 && dC > 0
+                        ? `<span style="color:#F97316;font-weight:700;">${cStr}</span> <span style="font-size:0.8rem;color:#F97316;">(${dC} ${(i18n.days_rem||'days').split(' ')[0]})</span>`
+                        : `<span>${cStr}</span>`;
                     endDateHtml = `<div><span class="date-label">${i18n.tl_contract_end}</span><div class="date-value">${label}</div></div>`;
                 } else {
                     endDateHtml = `<div><span class="date-label">${i18n.tl_contract_end}</span><div class="date-value">${c.contract_end_date}</div></div>`;
