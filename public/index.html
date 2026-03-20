@@ -1713,22 +1713,44 @@
         }
 
         function testNotification() {
+            if (typeof allContracts === 'undefined' || !allContracts.length) {
+                fetch('/api/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: 'Xeck — Test ✅', body: 'Reminder system is working! You have no active contracts to simulate.' })
+                }).catch(e => console.error(e));
+                return;
+            }
+
+            const today = new Date();
+            let soonest = null;
+            let minDays = Infinity;
+
+            allContracts.forEach(c => {
+                if (c.status === 'archived') return;
+                const checkDate = c.permanencia_end_date || c.contract_end_date;
+                if (!checkDate) return;
+                const d = parseDDMMYYYY(checkDate);
+                if (!d) return;
+                const daysLeft = Math.ceil((d - today) / 86400000);
+                if (daysLeft > 0 && daysLeft < minDays) {
+                    minDays = daysLeft;
+                    soonest = c;
+                }
+            });
+
+            if (!soonest) soonest = allContracts[0];
+            const dLeft = minDays === Infinity ? 30 : minDays;
+            const eDate = soonest.permanencia_end_date || soonest.contract_end_date || 'Unknown';
+
             fetch('/api/notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    title: 'Xeck — Test ✅', 
-                    body: 'Reminder system is working! Your contract reminders will appear like this.' 
+                    title: 'Xeck — Contract Expiry', 
+                    body: `"${soonest.title}" expires in ${dLeft} day${dLeft !== 1 ? 's' : ''} (${eDate}).` 
                 })
-            })
-            .then(res => res.json())
-            .then(data => {
-                alert('¡Se ha enviado la señal de notificación! Si no ves un banner con aviso de Windows en la esquina de la pantalla, por favor comprueba que el "Asistente de concentración" (Focus Assist) o "No Molestar" de Windows esté INACTIVO.');
-            })
-            .catch(e => {
-                alert('Error al enviar la notificación: ' + e.message);
-                console.error('Test notification failed:', e);
-            });
+            }).catch(e => console.error('Test notification failed:', e));
         }
 
         function switchTab(viewId) {
