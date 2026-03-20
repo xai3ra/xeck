@@ -874,6 +874,15 @@
                     <!-- Dynamic contracts will be inserted here -->
                 </div>
             </section>
+
+            <section class="contracts-section" style="margin-top:2rem;" id="docSection">
+                <div class="section-header">
+                    <h2 class="text-heading-md" data-i18n="title_documents">Documents &amp; IDs</h2>
+                </div>
+                <div class="list-container" id="documentList">
+                    <!-- Dynamic documents will be inserted here -->
+                </div>
+            </section>
         </div>
 
         <!-- SETTINGS VIEW -->
@@ -1114,17 +1123,17 @@
         <form class="slide-content" id="contractForm" onsubmit="submitContract(event)" oninput="saveDraft()">
             <div class="form-group">
                 <label data-i18n="lbl_title">Title</label>
-                <input type="text" id="contractTitle" class="form-control" name="title" data-i18n-placeholder="pl_title" placeholder="e.g. Movistar Fiber 1GB" required>
+                <input type="text" id="contractTitle" class="form-control" name="title" data-i18n-placeholder="pl_title" placeholder="e.g. Movistar Fiber 1GB" required oninvalid="this.setCustomValidity(translations[currentLang]?.msg_required || 'Please fill this field.')" oninput="this.setCustomValidity('')">
             </div>
             
             <div class="form-group" style="margin-top: 6px;">
                 <label data-i18n="lbl_cost">Monthly Cost (€)</label>
-                <input type="number" step="0.01" class="form-control" name="monthly_cost" required placeholder="45.00">
+                <input type="number" step="0.01" class="form-control" id="costInput" name="monthly_cost" required placeholder="45.00" oninvalid="this.setCustomValidity(translations[currentLang]?.msg_required || 'Please fill this field.')" oninput="this.setCustomValidity('')">
             </div>
             
             <div class="form-group" style="margin-top: 6px;">
                 <label data-i18n="lbl_category">Category</label>
-                <select class="form-control" name="category">
+                <select class="form-control" id="categorySelect" name="category" onchange="onCategoryChange(this.value)">
                     <option value="Utilities" data-i18n="cat_utilities">Utilities</option>
                     <option value="Insurance" data-i18n="cat_insurance">Insurance</option>
                     <option value="Mobile" data-i18n="cat_mobile">Mobile</option>
@@ -1244,7 +1253,9 @@
                 set_account_storage: "Account / Storage",
                 id_google_user: "Google User", id_connecting: "Connecting...", id_local_guest: "Guest",
                 pl_title: "e.g. Movistar Fiber 1GB",
-                btn_ok: "OK", btn_cancel: "Cancel"
+                btn_ok: "OK", btn_cancel: "Cancel",
+                title_documents: "Documents & IDs", tl_no_docs: "No documents yet.",
+                msg_restore_draft: "You have an unsaved draft. Continue from where you left off?"
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
@@ -1299,7 +1310,9 @@
                 set_account_storage: "Cuenta / Almacenamiento",
                 id_google_user: "Usuario Google", id_connecting: "Conectando...", id_local_guest: "Invitado",
                 pl_title: "p. ej. Fibra Movistar 1GB",
-                btn_ok: "Aceptar", btn_cancel: "Cancelar"
+                btn_ok: "Aceptar", btn_cancel: "Cancelar",
+                title_documents: "Documentos e IDs", tl_no_docs: "Todavía no hay documentos.",
+                msg_restore_draft: "Tienes un borrador sin terminar. ¿Deseas continuar?"
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
@@ -1355,7 +1368,9 @@
                 btn_logout: "退出登录 / 切换账号",
                 id_google_user: "谷歌用户", id_connecting: "待连接", id_local_guest: "本地访客",
                 pl_title: "例如：中国移动宽带 1000M",
-                btn_ok: "确定", btn_cancel: "取消"
+                btn_ok: "确定", btn_cancel: "取消",
+                title_documents: "证件 & 文件", tl_no_docs: "暂无证件。",
+                msg_restore_draft: "有未完成的草稿，是否继续编辑？"
             }
         };
 
@@ -1391,12 +1406,20 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const savedLang = localStorage.getItem('xeck_lang') || 'en';
+            // 1. Fetch settings from server to get source-of-truth language
+            let savedLang = localStorage.getItem('xeck_lang') || 'en';
+            try {
+                const res = await fetch('/api/settings');
+                const cfg = await res.json();
+                if (cfg.current_language) {
+                    savedLang = cfg.current_language;
+                    localStorage.setItem('xeck_lang', savedLang);
+                }
+            } catch(e) { console.warn("[Startup] Failed to fetch server settings:", e); }
+
             document.getElementById('languageSelect').value = savedLang;
             
             // Force initial sync to backend to ensure folder names stay consistent
-            // Even if savedLang is the same as the client's current variable, 
-            // the backend might be out of sync.
             await changeLanguage(savedLang, true); 
             
             document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeAllModals(); });
@@ -1440,7 +1463,6 @@
                         const key = el.getAttribute('data-i18n-placeholder');
                         if (translations[langCode][key]) el.placeholder = translations[langCode][key];
                     });
-                    refreshValidationMessages(langCode);
                 }
 
                 // Trigger backend migration if language actually changed OR forced on startup
@@ -1954,9 +1976,12 @@
                 const form = document.getElementById('contractForm');
                 form.reset();
                 form.removeAttribute('data-edit-id');
+                // Reset category-dependent visibility
+                onCategoryChange('');
                 const titleEl = document.querySelector('#addModal .text-micro-caps');
                 if (titleEl) titleEl.textContent = (translations[currentLang] || translations['en']).slide_new_title || 'NUEVO';
                 document.getElementById('fileName').innerText = translations[currentLang]['lbl_doc_up'];
+
             }, 300);
         }
 
@@ -2243,11 +2268,24 @@
             </div>`;
         }
 
+        // Called when category changes in form
+        function onCategoryChange(val) {
+            const costInput = document.getElementById('costInput');
+            const costGroup = costInput ? costInput.closest('.form-group') : null;
+            if (val === 'Documentation') {
+                if (costInput) { costInput.value = '0'; costInput.required = false; }
+                if (costGroup) costGroup.style.display = 'none';
+            } else {
+                if (costInput && costInput.value === '0') costInput.value = '';
+                if (costInput) costInput.required = true;
+                if (costGroup) costGroup.style.display = '';
+            }
+        }
+
         async function loadContracts() {
             try {
                 const response = await fetch('/api/contracts');
                 const raw = await response.json();
-                // Guard: if the API returned an error object, treat as empty
                 allContracts = Array.isArray(raw) ? raw : [];
                 if (!Array.isArray(raw)) console.error('GET /api/contracts returned non-array:', raw);
 
@@ -2255,32 +2293,74 @@
                 let upcomingCount = 0;
                 const today = new Date();
                 let rowsHtml = '';
+                let docsHtml = '';
 
                 allContracts.forEach(c => {
-                    total += Number(c.monthly_cost);
-                    // count upcoming renewals: contract_end_date OR permanencia_end_date within 30 days
-                    const checkDate = c.contract_end_date || c.permanencia_end_date;
-                    if (checkDate) {
-                        const dObj = parseDDMMYYYY(checkDate);
-                        const d = dObj ? Math.ceil((dObj - today) / 86400000) : -1;
-                        if (d > 0 && d <= 30) upcomingCount++;
+                    const isDoc = (c.category || '').toLowerCase() === 'documentation';
+                    if (!isDoc) {
+                        total += Number(c.monthly_cost);
+                        // count upcoming renewals
+                        const checkDate = c.contract_end_date || c.permanencia_end_date;
+                        if (checkDate) {
+                            const dObj = parseDDMMYYYY(checkDate);
+                            const d = dObj ? Math.ceil((dObj - today) / 86400000) : -1;
+                            if (d > 0 && d <= 30) upcomingCount++;
+                        }
+                        rowsHtml += buildRowHtml(c);
+                    } else {
+                        docsHtml += buildDocRowHtml(c);
                     }
-                    rowsHtml += buildRowHtml(c);
                 });
 
                 document.getElementById('totalExpenses').innerText = `€${total.toFixed(2)}`;
                 document.getElementById('upcomingRenewals').innerText = upcomingCount > 0 && upcomingCount < 10 ? `0${upcomingCount}` : String(upcomingCount);
 
+                const i18n = translations[currentLang] || translations['en'];
                 const overviewList = document.getElementById('contractList');
                 const contractsList = document.getElementById('contractListContracts');
-                const i18n = translations[currentLang] || translations['en'];
+                const documentList = document.getElementById('documentList');
+                const docSection = document.getElementById('docSection');
+
                 if (overviewList) overviewList.innerHTML = rowsHtml || `<p style="color:var(--text-secondary);font-size:0.875rem;padding:1rem 0;">${i18n.tl_no_contracts}</p>`;
-                if (contractsList) contractsList.innerHTML = overviewList ? overviewList.innerHTML : rowsHtml;
+                if (contractsList) contractsList.innerHTML = rowsHtml || `<p style="color:var(--text-secondary);font-size:0.875rem;padding:1rem 0;">${i18n.tl_no_contracts}</p>`;
+                if (documentList) {
+                    documentList.innerHTML = docsHtml || `<p style="color:var(--text-secondary);font-size:0.875rem;padding:1rem 0;">${i18n.tl_no_docs}</p>`;
+                }
+                if (docSection) docSection.style.display = docsHtml ? '' : 'none';
 
             } catch (err) {
                 console.error(err);
             }
         }
+
+        // Simplified row for documentation items (no cost, permanencia, etc.)
+        function buildDocRowHtml(c) {
+            const i18n = translations[currentLang];
+            const catStr = i18n['cat_' + (c.category || 'other').toLowerCase()] || c.category || 'Other';
+            const expiry = c.contract_end_date ? (() => {
+                const d = parseDDMMYYYY(c.contract_end_date);
+                const today = new Date();
+                const days = d ? Math.ceil((d - today) / 86400000) : null;
+                const dateStr = d ? d.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB', {day:'numeric',month:'short',year:'numeric'}) : c.contract_end_date;
+                if (days !== null && days > 0 && days <= 30) return `<span style="color:#F97316;font-weight:700;">${i18n.tl_renews} ${dateStr}</span>`;
+                if (days !== null && days <= 0) return `<span style="color:#10B981;">${i18n.tl_ended_check}</span>`;
+                return `<span style="color:var(--text-secondary);font-size:0.8125rem;">${dateStr}</span>`;
+            })() : `<span style="color:var(--text-tertiary);font-size:0.8125rem;">${i18n.no_date || '—'}</span>`;
+
+            return `<div class="list-row" style="grid-template-columns:40px 2.5fr 1.2fr 1.5fr;" onclick="openDetailPanel(${c.id})">
+                <div class="provider-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <div class="contract-info">
+                    <span class="contract-title">${c.title}</span>
+                    <span class="contract-sub">${catStr}</span>
+                </div>
+                <span class="permanencia-badge">${catStr}</span>
+                <div>${expiry}</div>
+            </div>`;
+        }
+
+
 
         let contractToDelete = null;
 

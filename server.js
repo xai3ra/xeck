@@ -490,26 +490,55 @@ app.post('/api/analyze-contract', analyzeUpload.array('document', 10), async (re
         const userLang = req.body.lang || 'en';
         const notesLang = { 'en': 'English', 'es': 'Spanish', 'zh': 'Chinese' }[userLang] || 'English';
 
-        let keyFacts = '';
-        if (extractedText) {
-            const fullText = extractedText;
-            const dates = fullText.match(/\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}|\d{1,2} de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre) de \d{4}/gi) || [];
-            const money = fullText.match(/[\d][\d.,]*\s*(?:€|EUR|USD|GBP)|(?:€|EUR|USD|GBP|\$|£)\s*[\d][\d.,]*/g) || [];
-            const lines = fullText.split('\n').filter(l => /válida|hasta|desde|vigencia|prima|total|precio|fecha|inicio|fin|renovaci|period|anual/i.test(l)).slice(0, 20);
-            keyFacts = `KEY FACTS: Dates: ${[...new Set(dates)].join(', ')} | Amounts: ${[...new Set(money)].join(', ')} | Lines: ${lines.join('; ')}`;
-        }
+        const prompt = `You are an expert contract analyst. I will give you the full text of a contract document. Your job is to carefully read and understand the ENTIRE content, then extract the correct structured data.
 
-        const prompt = `You are a contract analyst. Return ONLY valid JSON. 
-Translate everything into ${notesLang}. "notes" should be a bulleted list covering Provider, Coverage, Cost, Duration.
+IMPORTANT: Think step by step before answering. Understand the full context of the document first.
 
-Fields: title, category (Utilities, Insurance, Mobile, Internet, Subscription, Documentation, Other), billing_cycle (Monthly, Annual, Quarterly), _cost_value (number), _cost_nature ("monthly", "quarterly", "annual", "total_over_N"), start_date, contract_end_date, permanencia_end_date (DD/MM/YYYY), notes.
+OUTPUT: Return ONLY a single valid JSON object. No markdown code blocks, no explanation text — just raw JSON.
 
-IMPORTANT on COST: Always prioritize the FINAL TOTAL PRICE (e.g., "Precio total") inclusive of taxes and fees. Ignore "Net Premium" or "Prima Neta" if a final total is available.
-If the document shows a total cost covering a specific fixed multi-year period (e.g., "1800€ for 3 years" or "Single premium for 24 months"), set _cost_value to that TOTAL price (1800) and set _cost_nature to "total_over_N" where N is total months (e.g., "total_over_36" or "total_over_24").
+---REQUIRED JSON FIELDS---
+{
+  "title": string (max 40 chars, in ${notesLang} — e.g. provider + product type),
+  "category": one of [Utilities, Insurance, Mobile, Internet, Subscription, Documentation, Other],
+  "billing_cycle": one of [Monthly, Annual, Quarterly],
+  "_cost_value": number (the actual recurring charge — see cost rules below),
+  "_cost_nature": one of [monthly, quarterly, annual, total_over_N] where N = number of months,
+  "start_date": DD/MM/YYYY or "",
+  "contract_end_date": DD/MM/YYYY or "",
+  "permanencia_end_date": DD/MM/YYYY or "" (lock-in/permanencia expiry),
+  "notes": string in ${notesLang} — bullet-point summary: provider, product, actual recurring price, duration, important conditions
+}
 
-Context Facts: ${keyFacts}
+---COST EXTRACTION — MOST CRITICAL PART---
+You MUST distinguish between:
+1. The ACTUAL RECURRING CHARGE the customer pays each billing period (this is what we want)
+2. Financing sub-components, discounts, or one-time fees embedded in the explanation
 
-JSON: {"title":"","category":"","billing_cycle":"","_cost_value":0,"_cost_nature":"monthly","start_date":"","contract_end_date":"","permanencia_end_date":"","notes":""}`;
+To find the real recurring charge:
+- If the document has a payment schedule table (e.g. "Forma de Pago / Período / Total con IVA a Pagar"), read the table row for the main recurring period — this is the correct amount
+- Narrative text may explain that a price includes a financing component or a promotional discount — do not confuse these sub-components for the total
+- The correct _cost_value is what will be charged to the customer's bank account each period going forward
+
+Examples of correct reasoning:
+- "Cuota mensual: 52,03€ (incluye 35,13€ de financiación de instalación)" → _cost_value = 52.03 (that is what leaves the bank account)
+- "Prima total con IVA: 1.200€ anual" → _cost_value = 1200, _cost_nature = "annual"
+- "Pago único 3600€ por 36 meses de servicio" → _cost_value = 3600, _cost_nature = "total_over_36"
+- ID card or passport with no fee → _cost_value = 0
+
+---COST TAX---
+Always use the gross amount including VAT/IVA/taxes, NOT the net/before-tax amount.
+
+---CATEGORY GUIDE---
+Utilities = electricity, gas, water | Insurance = any insurance policy | Mobile = phone plan | Internet = fiber/broadband | Subscription = streaming/gym/software | Documentation = IDs/passports/certificates (cost=0) | Other = anything else
+
+---DOCUMENT TEXT---
+${extractedText}
+
+---JSON OUTPUT---`;
+
+
+
+
 
         try {
             let result = '';
