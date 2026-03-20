@@ -671,11 +671,25 @@ To find the real recurring charge:
 - Narrative text may explain that a price includes a financing component or a promotional discount — do not confuse these sub-components for the total
 - The correct _cost_value is what will be charged to the customer's bank account each period going forward
 
+SPECIAL CASE — UPFRONT LUMP-SUM FOR MULTI-YEAR PERIOD:
+When a customer pays a SINGLE AMOUNT that covers MULTIPLE YEARS upfront (e.g. "Prima única de 1841.78€ por los 3 primeros años"), you MUST:
+- Set _cost_value = the full amount paid (e.g. 1841.78)
+- Set _cost_nature = "total_over_N" where N = total number of MONTHS covered (e.g. 3 years = 36 months → "total_over_36")
+- This allows the system to correctly compute the monthly equivalent
+
 Examples of correct reasoning:
-- "Cuota mensual: 52,03€ (incluye 35,13€ de financiación de instalación)" → _cost_value = 52.03 (that is what leaves the bank account)
+- "Cuota mensual: 52,03€" → _cost_value = 52.03, _cost_nature = "monthly"
 - "Prima total con IVA: 1.200€ anual" → _cost_value = 1200, _cost_nature = "annual"
+- "Pago único 1841.78€ por 3 años" → _cost_value = 1841.78, _cost_nature = "total_over_36"
 - "Pago único 3600€ por 36 meses de servicio" → _cost_value = 3600, _cost_nature = "total_over_36"
 - ID card or passport with no fee → _cost_value = 0
+
+---NOTES FORMATTING---
+For the "notes" field:
+- Write each bullet point on a SEPARATE LINE. Use "• " prefix for each item.
+- Do NOT concatenate all bullets into one long string.
+- Example:
+  "notes": "• Policy: 12345\n• Emergency Phone: 900 111 222 (24h)\n• Coverage: Fire, water damage, theft"
 
 ---COST TAX---
 Always use the gross amount including VAT/IVA/taxes, NOT the net/before-tax amount.
@@ -739,6 +753,8 @@ ${extractedText}
             function extractF(text, f, isNum) {
                 if (isNum) { const m = text.match(new RegExp('"' + f + '"\\s*:\\s*([\\d.,]+)')); return m ? parseFloat(m[1].replace(',', '.')) : 0; }
                 const m = text.match(new RegExp('"' + f + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"', 's'));
+                // For notes, preserve \n as actual newlines
+                if (f === 'notes') return m ? m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : '';
                 return m ? m[1].replace(/\\n/g, ' ').replace(/\\"/g, '"') : '';
             }
             let raw;

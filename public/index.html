@@ -964,12 +964,11 @@
             <header class="header">
                 <div class="greeting">
                     <h1 class="text-heading-lg" data-i18n="nav_notifications">Notifications</h1>
+                    <p style="font-size:0.875rem;color:var(--text-secondary);" data-i18n="notif_sub">Contracts expiring within the next 60 days.</p>
                 </div>
             </header>
-            <div class="list-container" style="text-align:center; padding: 40px; color: var(--text-tertiary);">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="48" height="48" style="margin-bottom: 12px;opacity:0.5;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                <p data-i18n="tl_no_data">No data.</p>
-                <p style="margin-top: 8px; font-size:12px;">Automated reminders (System Tray + Google Calendar) are active in the background.</p>
+            <div id="notificationsList" class="list-container">
+                <!-- Populated by renderNotifications() -->
             </div>
         </div>
 
@@ -1188,18 +1187,45 @@
     </div>
 
     <!-- Baja Letter Modal -->
-    <div id="bajaModal" style="max-width: 600px; width: 90%;">
-        <h2 class="text-heading-md" style="margin-bottom: 0.5rem;" data-i18n="baja_title">Carta de Baja</h2>
-        <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 1rem;">Plantilla para cancelar el contrato (envíela por email o correo postal a su proveedor).</p>
+    <div id="bajaModal" style="max-width: 660px; width: 95%;"
+         style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;">
+            <div>
+                <h2 class="text-heading-md" style="margin:0;" data-i18n="baja_title">Carta de Baja</h2>
+                <p style="font-size:0.8rem;color:var(--text-secondary);margin:4px 0 0;" data-i18n="baja_sub">AI will generate an official cancellation letter in your selected language.</p>
+            </div>
+            <button onclick="closeAllModals()" class="close-btn" type="button"
+                style="margin-left:1rem;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
         
-        <textarea id="bajaLetterText" class="form-control" style="height: 250px; resize: vertical; margin-bottom: 1rem; font-family: monospace; font-size: 0.75rem;"></textarea>
+        <div id="bajaEmptyState" style="text-align:center;padding:2rem 1rem;border:2px dashed var(--border-color);border-radius:12px;margin-bottom:1rem;background:var(--bg-secondary,#F9FAFB);">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="40" height="40" style="margin-bottom:0.75rem;opacity:0.4;color:var(--text-tertiary);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+            <p style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:1rem;" data-i18n="baja_ai_ready">Click the button below to have AI read the contract and write an official cancellation letter.</p>
+            <button class="btn-primary" onclick="generateBajaWithAI()" id="bajaGenerateBtn"
+                style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.6rem 1.5rem;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                <span data-i18n="baja_generate_btn">✨ Generate with AI</span>
+            </button>
+        </div>
         
-        <div style="text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
-             <button class="btn-secondary" onclick="closeAllModals()" style="padding: 10px 20px;">Cerrar</button>
-             <button class="btn-primary" style="padding: 10px 20px; background-color: #3B82F6;" onclick="copyBajaLetter()">
-                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" style="margin-right: 4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
-                 Copiar
-             </button>
+        <div id="bajaResultState" style="display:none;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem;">
+                <span style="font-size:0.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Generated Letter</span>
+                <button class="btn-secondary" onclick="regenerateBaja()" style="font-size:0.7rem;padding:4px 10px;">
+                    ↺ <span data-i18n="baja_regenerate">Regenerate</span>
+                </button>
+            </div>
+            <textarea id="bajaLetterText" class="form-control" style="height: 280px; resize: vertical; font-family: 'Georgia', serif; font-size: 0.8rem; line-height: 1.6;"></textarea>
+        </div>
+        
+        <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1rem;">
+            <button class="btn-secondary" onclick="closeAllModals()" data-i18n="btn_cancel">Cancel</button>
+            <button class="btn-primary" style="background-color:#3B82F6;padding:10px 20px;" onclick="copyBajaLetter()" id="bajaCopyBtn" style="display:none;">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" style="margin-right:4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                <span data-i18n="baja_copy">Copy Letter</span>
+            </button>
         </div>
     </div>
 
@@ -1356,7 +1382,11 @@
                 update_installing: "Installing update...",
                 update_install_complete: "Installation complete! Restart to apply.",
                 update_install_failed: "Installation failed.",
-                update_restart_required: "Restart required to apply update."
+                update_restart_required: "Restart required to apply update.",
+                baja_title: "Cancellation Letter", baja_sub: "AI will generate an official cancellation letter in your selected language.",
+                baja_ai_ready: "Click the button below to have AI read the contract and write an official cancellation letter.",
+                baja_generate_btn: "✨ Generate with AI", baja_generating: "Generating...", baja_regenerate: "Regenerate", baja_copy: "Copy Letter",
+                notif_sub: "Contracts expiring within the next 60 days.", notif_heartbeat: "App checks expiry every 12 hours while open."
             },
             es: {
                 nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes", nav_notifications: "Notificaciones",
@@ -1422,7 +1452,11 @@
                 update_installing: "Instalando actualización...",
                 update_install_complete: "¡Instalación completa! Reinicia para aplicar.",
                 update_install_failed: "Fallo en la instalación.",
-                update_restart_required: "Se requiere reiniciar para aplicar la actualización."
+                update_restart_required: "Se requiere reiniciar para aplicar la actualización.",
+                baja_title: "Carta de Baja", baja_sub: "La IA generará una carta de cancelación oficial en tu idioma.",
+                baja_ai_ready: "Pulsa el botón para que la IA lea el contrato y redacte la carta de baja oficial.",
+                baja_generate_btn: "✨ Generar con IA", baja_generating: "Generando...", baja_regenerate: "Volver a generar", baja_copy: "Copiar carta",
+                notif_sub: "Contratos que vencen en los próximos 60 días.", notif_heartbeat: "La app comprueba el vencimiento cada 12 horas mientras está abierta."
             },
             zh: {
                 nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置", nav_notifications: "提醒",
@@ -1489,7 +1523,11 @@
                 update_installing: "正在安装更新...",
                 update_install_complete: "安装完成！重启以应用。",
                 update_install_failed: "安装失败。",
-                update_restart_required: "需要重启以应用更新。"
+                update_restart_required: "需要重启以应用更新。",
+                baja_title: "申请取消合同", baja_sub: "AI 会阅读合同内容并用您选择的语言生成正式的解约申请函。",
+                baja_ai_ready: "点击下方按钮，由 AI 读取合同并起草正式解约函。",
+                baja_generate_btn: "✨ 用 AI 生成", baja_generating: "生成中...", baja_regenerate: "重新生成", baja_copy: "复制函件",
+                notif_sub: "未来 60 天内即将到期的合同。", notif_heartbeat: "程序开启时每 12 小时自动检查到期情况。"
             }
         };
 
@@ -1621,7 +1659,63 @@
                 if (el) el.classList.add('active');
                 if (viewId === 'analytics') renderAnalytics();
                 if (viewId === 'settings') loadAiSettings();
+                if (viewId === 'notifications') renderNotifications();
             } catch(e) { console.error("Tab switch error:", e); }
+        }
+
+        function renderNotifications() {
+            const i18n = translations[currentLang] || translations['en'];
+            const today = new Date();
+            const container = document.getElementById('notificationsList');
+            if (!container) return;
+
+            const expiring = allContracts.filter(c => {
+                if (c.status === 'archived') return false;
+                const checkDate = c.permanencia_end_date || c.contract_end_date;
+                if (!checkDate) return false;
+                const d = parseDDMMYYYY(checkDate);
+                if (!d) return false;
+                const daysLeft = Math.ceil((d - today) / 86400000);
+                return daysLeft > 0 && daysLeft <= 60;
+            }).sort((a, b) => {
+                const getD = c => { const ch = c.permanencia_end_date || c.contract_end_date; const p = parseDDMMYYYY(ch); return p ? p.getTime() : 9999999999999; };
+                return getD(a) - getD(b);
+            });
+
+            if (expiring.length === 0) {
+                container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-tertiary);">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="48" height="48" style="margin-bottom:12px;opacity:0.4;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                    <p style="font-weight:600;margin-bottom:6px;">${i18n.tl_no_upcoming_renewals}</p>
+                    <p style="font-size:0.8rem;">${i18n.notif_heartbeat || 'App will check expiry every 12 hours while open.'}</p>
+                </div>`;
+                return;
+            }
+
+            container.innerHTML = expiring.map(c => {
+                const checkDate = c.permanencia_end_date || c.contract_end_date;
+                const d = parseDDMMYYYY(checkDate);
+                const daysLeft = Math.ceil((d - today) / 86400000);
+                const isPerm = !!c.permanencia_end_date;
+                const catStr = i18n['cat_' + (c.category || 'other').toLowerCase()] || c.category || 'Other';
+                const urgency = daysLeft <= 14 ? '#DC2626' : daysLeft <= 30 ? '#F97316' : '#F59E0B';
+                const dateStr = d.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB', {day:'numeric',month:'short',year:'numeric'});
+                return `<div style="display:flex;align-items:center;gap:1rem;padding:1rem;border-radius:12px;border:1px solid var(--border-color);margin-bottom:0.75rem;background:var(--bg-secondary,#fff);">
+                    <div style="width:8px;height:8px;border-radius:50%;background:${urgency};flex-shrink:0;"></div>
+                    <div style="flex:1;">
+                        <div style="display:flex;align-items:baseline;gap:0.5rem;">
+                            <span style="font-weight:700;font-size:0.9375rem;">${c.title}</span>
+                            <span style="font-size:0.75rem;color:var(--text-secondary);">${catStr}</span>
+                        </div>
+                        <div style="font-size:0.8125rem;color:var(--text-secondary);margin-top:2px;">
+                            ${isPerm ? (i18n.tl_perm_end_detail || 'Lock-in End') : (i18n.tl_contract_end || 'End Date')}: <strong>${dateStr}</strong>
+                        </div>
+                    </div>
+                    <div style="text-align:right;flex-shrink:0;">
+                        <div style="font-size:1.25rem;font-weight:800;color:${urgency};">${daysLeft}</div>
+                        <div style="font-size:0.7rem;color:var(--text-secondary);">${i18n.days_rem?.split(' ')[0] || 'days'}</div>
+                    </div>
+                </div>`;
+            }).join('');
         }
 
         async function changeLanguage(langCode, forceSync = false) {
@@ -2633,33 +2727,64 @@
             setTimeout(() => modal.classList.add('show'), 10);
         }
 
-        async function showBajaLetter(id) {
+        // Contract to cancel - global ref used by generateBajaWithAI
+        let _bajaContractId = null;
+
+        function showBajaLetter(id) {
+            _bajaContractId = id;
             const c = allContracts.find(x => x.id === id);
             if (!c) return;
+            const i18n = translations[currentLang] || translations['en'];
 
-            // Open modal immediately with a loading state
-            const letterArea = document.getElementById('bajaLetterText');
-            letterArea.value = '⏳ Generating AI cancellation letter...';
+            // Reset modal to empty state
+            document.getElementById('bajaEmptyState').style.display = 'block';
+            document.getElementById('bajaResultState').style.display = 'none';
+            document.getElementById('bajaCopyBtn').style.display = 'none';
+            document.getElementById('bajaLetterText').value = '';
+
             document.getElementById('globalOverlay').style.display = 'block';
             const modal = document.getElementById('bajaModal');
             modal.style.display = 'block';
             setTimeout(() => modal.classList.add('show'), 10);
+        }
+
+        async function generateBajaWithAI() {
+            if (!_bajaContractId) return;
+            const i18n = translations[currentLang] || translations['en'];
+            const btn = document.getElementById('bajaGenerateBtn');
+            btn.disabled = true;
+            btn.innerHTML = `<span style="display:inline-flex;align-items:center;gap:0.5rem;">
+                <svg class="spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                ${i18n.baja_generating || 'Generating...'}</span>`;
 
             try {
                 const res = await fetch('/api/ai-baja', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contractId: c.id, lang: currentLang })
+                    body: JSON.stringify({ contractId: _bajaContractId, lang: currentLang })
                 });
                 const data = await res.json();
                 if (!res.ok || data.error) {
-                    letterArea.value = 'Error: ' + (data.error || 'AI not configured. Please configure AI in Settings first.');
+                    alert('Error: ' + (data.error || 'AI not configured. Please configure AI in Settings first.'));
                     return;
                 }
-                letterArea.value = data.letter || '';
+                document.getElementById('bajaLetterText').value = data.letter || '';
+                document.getElementById('bajaEmptyState').style.display = 'none';
+                document.getElementById('bajaResultState').style.display = 'block';
+                document.getElementById('bajaCopyBtn').style.display = 'flex';
             } catch(e) {
-                letterArea.value = 'Network error: ' + e.message;
+                alert('Network error: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg><span>${i18n.baja_generate_btn || '✨ Generate with AI'}</span>`;
             }
+        }
+
+        function regenerateBaja() {
+            document.getElementById('bajaEmptyState').style.display = 'block';
+            document.getElementById('bajaResultState').style.display = 'none';
+            document.getElementById('bajaCopyBtn').style.display = 'none';
+            document.getElementById('bajaLetterText').value = '';
         }
 
         function copyBajaLetter() {
