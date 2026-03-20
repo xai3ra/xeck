@@ -788,9 +788,79 @@
             font-size: 0.75rem;
             color: var(--text-secondary);
         }
+
+        /* Dynamic Update Banner */
+        #globalUpdateBanner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #111111;
+            color: #FFFFFF;
+            padding: 10px 24px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            z-index: 10001;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        
+        #globalUpdateBtn {
+            background: #FFFFFF;
+            color: #111111;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        #globalUpdateBtn:hover { transform: scale(1.05); }
+        #globalUpdateBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        #globalUpdateProgressBox {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            max-width: 300px;
+        }
+        .progress-track {
+            flex: 1;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        #globalUpdateProgressBar {
+            height: 100%;
+            width: 0%;
+            background: #10B981;
+            transition: width 0.3s;
+        }
+
     </style>
 </head>
 <body>
+    <!-- Global Update Banner -->
+    <div id="globalUpdateBanner">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span id="globalUpdateText" data-i18n="update_available_banner">Update Available!</span>
+        </div>
+        <button id="globalUpdateBtn" data-i18n="update_download_now">Download Now</button>
+        <div id="globalUpdateProgressBox">
+            <div class="progress-track"><div id="globalUpdateProgressBar"></div></div>
+            <span id="globalUpdatePercent" style="font-variant-numeric: tabular-nums;">0%</span>
+        </div>
+    </div>
+
     <!-- Custom Global Modal -->
     <div id="customModalOverlay" class="custom-modal-overlay">
         <div class="custom-modal">
@@ -820,6 +890,10 @@
             <a href="#" class="nav-item" id="btnNavAnalytics" onclick="switchTab('analytics')">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
                 <span data-i18n="nav_analytics">Analytics</span>
+            </a>
+            <a href="#" class="nav-item" id="btnNavNotifications" onclick="switchTab('notifications')">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                <span data-i18n="nav_notifications">Notifications</span>
             </a>
             <a href="#" class="nav-item" id="btnNavSettings" onclick="switchTab('settings')">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
@@ -857,7 +931,7 @@
                     </div>
                     <div class="text-value-xl" id="totalExpenses">€0.00</div>
                 </div>
-                 <div class="metric-card outlined">
+                 <div class="metric-card outlined" id="expiringFilterCard" style="cursor:pointer; transition: 0.2s;" onclick="toggleExpiringFilter()" title="Click to filter expiring">
                     <div class="metric-header">
                         <span class="text-micro-caps" data-i18n="metric_upcoming">Upcoming Renewals (< 30 days)</span>
                     </div>
@@ -883,6 +957,20 @@
                     <!-- Dynamic documents will be inserted here -->
                 </div>
             </section>
+        </div>
+
+        <!-- NOTIFICATIONS VIEW -->
+        <div class="content-inner view-section" id="view-notifications">
+            <header class="header">
+                <div class="greeting">
+                    <h1 class="text-heading-lg" data-i18n="nav_notifications">Notifications</h1>
+                </div>
+            </header>
+            <div class="list-container" style="text-align:center; padding: 40px; color: var(--text-tertiary);">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="48" height="48" style="margin-bottom: 12px;opacity:0.5;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                <p data-i18n="tl_no_data">No data.</p>
+                <p style="margin-top: 8px; font-size:12px;">Automated reminders (System Tray + Google Calendar) are active in the background.</p>
+            </div>
         </div>
 
         <!-- SETTINGS VIEW -->
@@ -1099,6 +1187,22 @@
         </div>
     </div>
 
+    <!-- Baja Letter Modal -->
+    <div id="bajaModal" style="max-width: 600px; width: 90%;">
+        <h2 class="text-heading-md" style="margin-bottom: 0.5rem;" data-i18n="baja_title">Carta de Baja</h2>
+        <p style="font-size: 0.8125rem; color: var(--text-secondary); margin-bottom: 1rem;">Plantilla para cancelar el contrato (envíela por email o correo postal a su proveedor).</p>
+        
+        <textarea id="bajaLetterText" class="form-control" style="height: 250px; resize: vertical; margin-bottom: 1rem; font-family: monospace; font-size: 0.75rem;"></textarea>
+        
+        <div style="text-align: right; display: flex; gap: 10px; justify-content: flex-end;">
+             <button class="btn-secondary" onclick="closeAllModals()" style="padding: 10px 20px;">Cerrar</button>
+             <button class="btn-primary" style="padding: 10px 20px; background-color: #3B82F6;" onclick="copyBajaLetter()">
+                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" style="margin-right: 4px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path></svg>
+                 Copiar
+             </button>
+        </div>
+    </div>
+
     <!-- Add Contract Panel -->
     <aside class="slide-over" id="addModal">
         <div class="slide-header">
@@ -1189,10 +1293,10 @@
         /* I18N DICTIONARY */
         const translations = {
             en: {
-                nav_overview: "Overview", nav_contracts: "Contracts", nav_analytics: "Analytics", nav_settings: "Settings",
+                nav_overview: "Overview", nav_contracts: "Contracts", nav_analytics: "Analytics", nav_settings: "Settings", nav_notifications: "Notifications",
                 greeting: "Hello", greeting_sub: "Here is the status of your contracts.",
                 settings_sub: "Manage your preferences and data backups.", btn_add_contract: "Add New Contract",
-                metric_expenses: "Total Monthly Expenses", metric_upcoming: "Upcoming Renewals (< 30 days)", title_active_contracts: "Active Contracts",
+                metric_expenses: "Total Monthly Expenses", metric_upcoming: "Upcoming Renewals (< 60 days)", title_active_contracts: "Active Contracts",
                 set_language: "Language", set_data: "Data Management", btn_export: "Export Backup (ZIP)", btn_import: "Import Backup",
                 data_warning: "Warning: Importing a backup will overwrite your current database and files.",
                 login_title: "Choose your storage method", login_sub: "Select how you would like to store your contract data.",
@@ -1222,8 +1326,8 @@
                 tl_perm_ending_soon: "⚠ Lock-in Ending Soon", tl_lock_in_ends_in: "Lock-in ends in", 
                 tl_switch_penalty: " After that you can switch without penalty.", tl_perm_end_detail: "Lock-in End", 
                 tl_permanencia: "Lock-in", tl_ended_check: "Ended ✓", tl_notes_detail: "Notes", tl_renews: "Renews",
-                tl_spending_cat: "Spending by Category", tl_upcoming_90_days: "Upcoming Renewals (Next 90 days)", 
-                tl_no_data: "No data.", tl_no_upcoming_renewals: "No renewals in the next 90 days.",
+                tl_spending_cat: "Spending by Category", tl_upcoming_90_days: "Upcoming Renewals (Next 60 days)", 
+                tl_no_data: "No data.", tl_no_upcoming_renewals: "No renewals in the next 60 days.",
                 tl_no_contracts: "No contracts yet. Click 'Add New' to begin.",
                 delete_confirm_title: "Delete Contract?",
                 delete_confirm_msg: "ATTENTION: This will permanently delete the contract directory and all attached files.",
@@ -1255,10 +1359,10 @@
                 update_restart_required: "Restart required to apply update."
             },
             es: {
-                nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes",
+                nav_overview: "Resumen", nav_contracts: "Contratos", nav_analytics: "Análisis", nav_settings: "Ajustes", nav_notifications: "Notificaciones",
                 greeting: "Hola", greeting_sub: "Aquí está el estado de tus contratos.",
                 settings_sub: "Administra tus preferencias y copias de seguridad.", btn_add_contract: "Añadir nuevo",
-                metric_expenses: "Gastos Mensuales Totales", metric_upcoming: "Próximas Renov. (< 30 días)", title_active_contracts: "Contratos Activos",
+                metric_expenses: "Gastos Mensuales Totales", metric_upcoming: "Próximas Renov. (< 60 días)", title_active_contracts: "Contratos Activos",
                 set_language: "Idioma", set_data: "Gestión de Datos", btn_export: "Exportar Copia (ZIP)", btn_import: "Importar Copia",
                 data_warning: "Aviso: Importar un zip sobrescribirá tu base de datos y archivos locales.",
                 login_title: "Elige tu método de guardado", login_sub: "Selecciona cómo quieres guardar los datos de tus contratos.",
@@ -1288,8 +1392,8 @@
                 tl_perm_ending_soon: "⚠ Permanencia Termina Pronto", tl_lock_in_ends_in: "La permanencia termina en", 
                 tl_switch_penalty: " Después puedes cambiarte sin penalización.", tl_perm_end_detail: "Fin Permanencia", 
                 tl_permanencia: "Permanencia", tl_ended_check: "Terminada ✓", tl_notes_detail: "Notas", tl_renews: "Renueva",
-                tl_spending_cat: "Gastos por Categoría", tl_upcoming_90_days: "Próximas Renov. (próximos 90 días)", 
-                tl_no_data: "Sin datos.", tl_no_upcoming_renewals: "No hay renovaciones en los próximos 90 días.",
+                tl_spending_cat: "Gastos por Categoría", tl_upcoming_90_days: "Próximas Renov. (próximos 60 días)", 
+                tl_no_data: "Sin datos.", tl_no_upcoming_renewals: "No hay renovaciones en los próximos 60 días.",
                 tl_no_contracts: "No hay contratos todavía. Haz clic en 'Añadir nuevo' para empezar.",
                 delete_confirm_title: "¿Eliminar Contrato?",
                 delete_confirm_msg: "ATENCIÓN: Esta acción también eliminará permanentemente la carpeta del contrato y todos los archivos PDF/JPG adjuntos.",
@@ -1321,10 +1425,10 @@
                 update_restart_required: "Se requiere reiniciar para aplicar la actualización."
             },
             zh: {
-                nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置",
+                nav_overview: "概览", nav_contracts: "合同", nav_analytics: "数据分析", nav_settings: "设置", nav_notifications: "提醒",
                 greeting: "您好", greeting_sub: "以下是您的合同、订阅和文件状态",
                 settings_sub: "管理您的偏好设置和数据备份。", btn_add_contract: "添加新合同",
-                metric_expenses: "月总支出", metric_upcoming: "即将到期 (30天内)", title_active_contracts: "正生效合同",
+                metric_expenses: "月总支出", metric_upcoming: "即将到期 (60天内)", title_active_contracts: "正生效合同",
                 set_language: "语言选择", set_data: "数据管理", btn_export: "导出备份 (ZIP)", btn_import: "导入备份",
                 data_warning: "警告：导入备份文件将会覆盖您当前的本地数据库与全部文件。",
                 login_title: "选择登录/存储方式", login_sub: "请选择您希望如何存储合同数据。",
@@ -1355,8 +1459,8 @@
                 tl_switch_penalty: "。之后您可以无违约金更换套餐。", tl_perm_end_detail: "锁定期满", 
                 tl_permanencia: "锁定期", tl_ended_check: "已结束 ✓", tl_notes_detail: "备注", tl_renews: "续约日",
                 tl_no_contracts: "暂无合同。点击 “添加新合同” 开始使用。", 
-                tl_spending_cat: "按类别支出占比", tl_upcoming_90_days: "即将到期 (未来90天)", 
-                tl_no_data: "暂无数据。", tl_no_upcoming_renewals: "未来 90 天内没有即将到期的合同。",
+                tl_spending_cat: "按类别支出占比", tl_upcoming_90_days: "即将到期 (未来60天)", 
+                tl_no_data: "暂无数据。", tl_no_upcoming_renewals: "未来 60 天内没有即将到期的合同。",
                 delete_confirm_title: "确定要彻底删除此合同吗？",
                 delete_confirm_msg: "注意：此操作也会永久删除该合同对应的专属文件夹以及所有上传的附加文件。",
                 btn_confirm: "确定删除",
@@ -1967,7 +2071,7 @@
                 const pEnd = parseDDMMYYYY(c.permanencia_end_date);
                 const daysDiff = Math.ceil((pEnd - today) / 86400000);
                 const pDateStr = pEnd.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB', {day:'numeric',month:'short',year:'numeric'});
-                if (daysDiff > 0 && daysDiff <= 30) {
+                if (daysDiff > 0 && daysDiff <= 60) {
                     permBlock = `<div class="warning-card">
                         <div class="wc-title">${i18n.tl_perm_ending_soon}</div>
                         <div class="wc-desc">${i18n.tl_lock_in_ends_in} <strong>${daysDiff} ${i18n.days_rem}</strong> (${pDateStr})${i18n.tl_switch_penalty}</div>
@@ -2035,6 +2139,7 @@
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.172-8.172z"></path></svg>
                         Edit
                     </button>
+                    ${!i18n['cat_'+(c.category||'other').toLowerCase()]?.includes('Document') && c.category !== 'Documentation' ? `<button class="btn-primary" style="flex:1;justify-content:center;background-color:#10B981;" onclick="renewContract(${c.id})">✅ ${i18n.btn_save?.includes('Guardar') ? 'Renovar' : (i18n.btn_save?.includes('保存') ? '续约' : 'Renew')}</button>` : ''}
                     <button class="delete-btn" style="flex:1;" onclick="showDeleteConfirm(${c.id})">${i18n.tl_delete_contract}</button>
                 </div>
             `;
@@ -2055,13 +2160,17 @@
             lgModal.classList.remove('show');
             const delModal = document.getElementById('deleteConfirmModal');
             if (delModal) delModal.classList.remove('show');
+            const bajaModal = document.getElementById('bajaModal');
+            if (bajaModal) bajaModal.classList.remove('show');
             setTimeout(() => {
                 document.getElementById('globalOverlay').style.display = 'none';
                 lgModal.style.display = 'none';
                 if (delModal) delModal.style.display = 'none';
+                if (bajaModal) bajaModal.style.display = 'none';
                 const form = document.getElementById('contractForm');
                 form.reset();
                 form.removeAttribute('data-edit-id');
+                form.removeAttribute('data-is-renew');
                 // Reset category-dependent visibility
                 onCategoryChange('');
                 const titleEl = document.querySelector('#addModal .text-micro-caps');
@@ -2305,7 +2414,7 @@
                 const pEnd = parseDDMMYYYY(c.permanencia_end_date);
                 if (pEnd) {
                     const dP = Math.ceil((pEnd - today) / 86400000);
-                    if (dP > 0 && dP <= 30) {
+                    if (dP > 0 && dP <= 60) {
                         permBadge = `<span class="permanencia-badge ending">${dP} ${i18n.days_rem}</span>`;
                         rowStyle = 'style="border-color:#000000;background:#000000;color:#ffffff;"';
                     } else if (dP > 0) {
@@ -2323,7 +2432,7 @@
                 if (cEnd) {
                     const dC = Math.ceil((cEnd - today) / 86400000);
                     const cStr = cEnd.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB',{day:'numeric',month:'short',year:'numeric'});
-                    const label = dC <= 30 && dC > 0 ? `<span style="color:#F97316;font-weight:800;">${i18n.tl_renews} ${cStr}</span>` : cStr;
+                    const label = dC <= 60 && dC > 0 ? `<span style="color:#F97316;font-weight:800;">${i18n.tl_renews} ${cStr}</span>` : cStr;
                     endDateHtml = `<div><span class="date-label">${i18n.tl_contract_end}</span><div class="date-value">${label}</div></div>`;
                 } else {
                     endDateHtml = `<div><span class="date-label">${i18n.tl_contract_end}</span><div class="date-value">${c.contract_end_date}</div></div>`;
@@ -2351,6 +2460,10 @@
                 <div class="cost-value">€${Number(c.monthly_cost).toFixed(2)}</div>
                 <div>${permBadge}</div>
                 ${endDateHtml}
+                <button class="btn-secondary" style="margin-left:auto; z-index:2; position:relative; padding: 4px 10px; font-size: 0.75rem; align-items:center; gap:4px; display:flex;" onclick="event.stopPropagation(); showBajaLetter(${c.id})">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    Baja
+                </button>
             </div>`;
         }
 
@@ -2366,6 +2479,20 @@
                 if (costInput) costInput.required = true;
                 if (costGroup) costGroup.style.display = '';
             }
+        }
+
+        let showOnlyExpiring = false;
+        function toggleExpiringFilter() {
+            showOnlyExpiring = !showOnlyExpiring;
+            const card = document.getElementById('expiringFilterCard');
+            if (showOnlyExpiring) {
+                card.style.backgroundColor = '#FEF3C7';
+                card.style.borderColor = '#F59E0B';
+            } else {
+                card.style.backgroundColor = '';
+                card.style.borderColor = '';
+            }
+            loadContracts();
         }
 
         async function loadContracts() {
@@ -2386,14 +2513,18 @@
                     if (!isDoc) {
                         total += Number(c.monthly_cost);
                         // count upcoming renewals
+                        let isExpiring = false;
                         const checkDate = c.contract_end_date || c.permanencia_end_date;
                         if (checkDate) {
                             const dObj = parseDDMMYYYY(checkDate);
                             const d = dObj ? Math.ceil((dObj - today) / 86400000) : -1;
-                            if (d > 0 && d <= 30) upcomingCount++;
+                            isExpiring = d > 0 && d <= 60;
+                            if (isExpiring) upcomingCount++;
                         }
+                        if (showOnlyExpiring && !isExpiring) return; // Skip row
                         rowsHtml += buildRowHtml(c);
                     } else {
+                        if (showOnlyExpiring) return; // Hide docs when filtering
                         docsHtml += buildDocRowHtml(c);
                     }
                 });
@@ -2428,7 +2559,7 @@
                 const today = new Date();
                 const days = d ? Math.ceil((d - today) / 86400000) : null;
                 const dateStr = d ? d.toLocaleDateString(currentLang === 'zh' ? 'zh-CN' : 'en-GB', {day:'numeric',month:'short',year:'numeric'}) : c.contract_end_date;
-                if (days !== null && days > 0 && days <= 30) return `<span style="color:#F97316;font-weight:700;">${i18n.tl_renews} ${dateStr}</span>`;
+                if (days !== null && days > 0 && days <= 60) return `<span style="color:#F97316;font-weight:700;">${i18n.tl_renews} ${dateStr}</span>`;
                 if (days !== null && days <= 0) return `<span style="color:#10B981;">${i18n.tl_ended_check}</span>`;
                 return `<span style="color:var(--text-secondary);font-size:0.8125rem;">${dateStr}</span>`;
             })() : `<span style="color:var(--text-tertiary);font-size:0.8125rem;">${i18n.no_date || '—'}</span>`;
@@ -2462,6 +2593,70 @@
             setTimeout(() => modal.classList.add('show'), 10);
         }
 
+        function showBajaLetter(id) {
+            const c = allContracts.find(x => x.id === id);
+            if (!c) return;
+            const profileName = document.getElementById('profileNameInput')?.value || document.getElementById('profileName').innerText;
+            const today = new Date().toLocaleDateString('es-ES');
+            
+            const template = `[CIUDAD], a ${today}
+
+A la atención del Departamento de Bajas / Atención al Cliente,
+Referencia / Contrato: ${c.title}
+
+Estimados señores,
+
+Por la presente, yo, ${profileName && profileName !== 'Guest User' && profileName !== 'Local Storage Only' ? profileName : '[SU NOMBRE Y APELLIDOS]'}, con DNI/NIE [SU DNI/NIE], como titular del contrato de referencia que mantengo suscrito con su compañía, les comunico mi decisión irrevocable de DAR DE BAJA y cancelar el servicio asociado al mismo.
+
+Les ruego que dicha baja se haga efectiva de manera inmediata o, en su defecto, a la finalización del periodo de facturación en curso (o fecha de fin de permanencia, si aplicase, el cual finaliza el ${c.permanencia_end_date || c.contract_end_date || '[FECHA]'}), sin que proceda la prórroga automática del mismo.
+
+Asimismo, solicito expresamente la cancelación de mis datos personales de sus bases de datos a efectos comerciales, de acuerdo con lo establecido en la normativa vigente de Protección de Datos.
+
+Quedo a la espera de su confirmación por escrito de la tramitación de esta baja.
+
+Atentamente,
+
+Fdo.: ${profileName && profileName !== 'Guest User' && profileName !== 'Local Storage Only' ? profileName : '[SU NOMBRE Y APELLIDOS]'}
+DNI/NIE: [SU DNI/NIE]
+Firma: ________________________`;
+
+            document.getElementById('bajaLetterText').value = template;
+            document.getElementById('globalOverlay').style.display = 'block';
+            const modal = document.getElementById('bajaModal');
+            modal.style.display = 'block';
+            setTimeout(() => modal.classList.add('show'), 10);
+        }
+
+        function copyBajaLetter() {
+            const text = document.getElementById('bajaLetterText');
+            text.select();
+            document.execCommand('copy');
+            alert(currentLang === 'es' ? 'Copiado al portapapeles' : (currentLang === 'zh' ? '已复制到剪贴板' : 'Copied to clipboard'));
+            closeAllModals();
+        }
+
+        async function renewContract(id) {
+            const c = allContracts.find(x => x.id === id);
+            if (!c) return;
+            
+            const i18n = translations[currentLang] || translations['en'];
+            const msg = currentLang === 'zh' ? 
+                '续约此合同将保留旧数据作为历史记录，并创建一个新版本的合同。是否继续？' :
+                currentLang === 'es' ? 
+                'Renovar este contrato archivará la versión antigua como historial y creará una nueva versión activa. ¿Continuar?' : 
+                'Renewing this contract will archive the old data as history and create a new active version. Continue?';
+                
+            if (!(await showCustomModal(msg, 'confirm'))) return;
+
+            // Pre-fill the add modal but change the ID to point to the renew endpoint!
+            editContract(id);
+            const form = document.getElementById('contractForm');
+            form.dataset.editId = id;
+            form.dataset.isRenew = 'true';
+            const titleEl = document.querySelector('#addModal .text-micro-caps');
+            if(titleEl) titleEl.textContent = i18n.btn_save?.includes('Guardar') ? 'RENOVAR' : (i18n.btn_save?.includes('保存') ? '续约' : 'RENEW');
+        }
+
         async function deleteContract(id) {
             try {
                 const res = await fetch(`/api/contracts/${id}`, { method: 'DELETE' });
@@ -2474,10 +2669,20 @@
             e.preventDefault();
             const form = document.getElementById('contractForm');
             const contractId = form.dataset.editId;
+            const isRenew = form.dataset.isRenew === 'true';
             const formData = new FormData(form);
             try {
-                const url = contractId ? `/api/contracts/${contractId}` : '/api/contracts';
-                const method = contractId ? 'PUT' : 'POST';
+                let url = '/api/contracts';
+                let method = 'POST';
+                if (contractId) {
+                    if (isRenew) {
+                        url = `/api/contracts/${contractId}/renew`;
+                        method = 'POST';
+                    } else {
+                        url = `/api/contracts/${contractId}`;
+                        method = 'PUT';
+                    }
+                }
                 const response = await fetch(url, { method, body: formData });
                 if (response.ok) {
                     localStorage.removeItem('xeck_contract_draft');
@@ -2538,6 +2743,11 @@
         }
 
         let spendingChart = null;
+        let analyticsYears = 1;
+        function updateAnalyticsYears(val) {
+            analyticsYears = parseInt(val, 10) || 1;
+            renderAnalytics();
+        }
         const categoryColors = {
             'services': '#3B82F6',
             'insurance': '#10B981',
@@ -2573,27 +2783,33 @@
                 if (checkDate) {
                     const dObj = parseDDMMYYYY(checkDate);
                     const d = dObj ? Math.ceil((dObj - today) / 86400000) : -1;
-                    if (d > 0 && d <= 90) upcoming.push({title: c.title, days: d, date: checkDate, type: c.contract_end_date ? i18n.tl_contract_end : i18n.tl_permanencia});
+                    if (d > 0 && d <= 60) upcoming.push({title: c.title, days: d, date: checkDate, type: c.contract_end_date ? i18n.tl_contract_end : i18n.tl_permanencia});
                 }
             });
             upcoming.sort((a,b) => a.days - b.days);
 
-            // 2. Multi-Category Trend Calculation (Last 12 Months)
+            // 2. Multi-Category Trend Calculation (1 to 10 Years)
+            const monthsToQuery = analyticsYears * 12;
             const monthLabels = [];
             const datasetsMap = {}; // category -> data array
             const catsInUse = [...new Set(allContracts.map(c => (c.category || 'Other').toLowerCase()))];
-            catsInUse.forEach(cat => datasetsMap[cat] = new Array(12).fill(0));
+            catsInUse.forEach(cat => datasetsMap[cat] = new Array(monthsToQuery).fill(0));
 
-            for (let i = 11; i >= 0; i--) {
+            for (let i = monthsToQuery - 1; i >= 0; i--) {
                 const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-                const mLabel = d.toLocaleString(currentLang === 'zh' ? 'zh-CN' : (currentLang === 'es' ? 'es-ES' : 'en-GB'), { month: 'short' });
+                const mLabel = d.toLocaleString(currentLang === 'zh' ? 'zh-CN' : (currentLang === 'es' ? 'es-ES' : 'en-GB'), { month: 'short', year: analyticsYears > 1 ? 'numeric' : undefined });
                 monthLabels.push(mLabel);
                 
                 allContracts.forEach(c => {
                     const start = parseDDMMYYYY(c.start_date);
+                    // A contract is active in month `d` if it started on or before the end of month `d` 
+                    // and either has no end_date or ended on/after the start of month `d`
                     if (start && start <= new Date(d.getFullYear(), d.getMonth() + 1, 0)) {
-                        const cat = (c.category || 'Other').toLowerCase();
-                        datasetsMap[cat][11 - i] += Number(c.monthly_cost);
+                        const end = parseDDMMYYYY(c.contract_end_date);
+                        if (!end || end >= d) {
+                            const cat = (c.category || 'Other').toLowerCase();
+                            datasetsMap[cat][monthsToQuery - 1 - i] += Number(c.monthly_cost);
+                        }
                     }
                 });
             }
@@ -2631,7 +2847,15 @@
 
             document.getElementById('analyticsContent').innerHTML = `
                 <div style="background:#FFF;border:2px solid #000;border-radius:var(--radius-2xl);padding:1.5rem;">
-                    <div style="font-size:0.625rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;margin-bottom:1.5rem;" data-i18n="tl_historical_trend">${i18n.tl_historical_trend}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                        <div style="font-size:0.625rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;" data-i18n="tl_historical_trend">${i18n.tl_historical_trend}</div>
+                        <select id="analyticsTimespan" style="font-size:0.75rem; padding:4px 8px; border-radius:4px; border:1px solid #CCC; background:#FFF; cursor:pointer;" onchange="updateAnalyticsYears(this.value)">
+                            <option value="1" ${analyticsYears === 1 ? 'selected' : ''}>1 Year</option>
+                            <option value="2" ${analyticsYears === 2 ? 'selected' : ''}>2 Years</option>
+                            <option value="5" ${analyticsYears === 5 ? 'selected' : ''}>5 Years</option>
+                            <option value="10" ${analyticsYears === 10 ? 'selected' : ''}>10 Years</option>
+                        </select>
+                    </div>
                     <div style="height:250px;width:100%;"><canvas id="spendingChartCanvas"></canvas></div>
                 </div>
 

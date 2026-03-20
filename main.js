@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, Menu, shell } = require('electron');
+const { app, BrowserWindow, dialog, Menu, shell, Notification } = require('electron');
 Menu.setApplicationMenu(null);
 const path = require('path');
 
@@ -137,6 +137,12 @@ autoUpdater.on('error', (err) => {
   setUpdateProgress({ status: 'error', error: err.message });
 });
 
+
+updateBus.on('show-notification', ({ title, body }) => {
+    if (Notification.isSupported()) {
+        new Notification({ title, body }).show();
+    }
+});
 
 app.on('ready', () => {
   // The server auto-starts on port 0 in server.js

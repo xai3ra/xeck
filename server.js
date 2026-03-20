@@ -8,10 +8,105 @@ const path = require('path');
 const cors = require('cors');
 const { PDFParse } = require('pdf-parse');
 const { EventEmitter } = require('events');
+const cron = require('node-cron');
 
+const { OAuth2Client } = require('google-auth-library');
+const { google } = require('googleapis');
+const app = express();
+const server = require('http').createServer(app);
+
+// Data Directory fallback to local './data' if not packaged
+const dataDir = process.env.XECK_DATA_DIR || path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+console.log(`[Server] Using Data Directory: ${dataDir}`);
+
+// Ensure database file exists
+const dbPath = path.join(dataDir, 'contracts.db');
+const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) { console.error('Error opening database', err.message); return; }
+    console.log('Connected to the SQLite database.');
+
+    db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS contracts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            category TEXT DEFAULT 'Other',
+            monthly_cost REAL DEFAULT 0,
+            billing_cycle TEXT DEFAULT 'Monthly',
+            start_date TEXT,
+            contract_end_date TEXT,
+            permanencia_end_date TEXT,
+            notes TEXT,
+            file_path TEXT,
+            status TEXT DEFAULT 'active',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        db.run(`CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )`);
+
+        // --- GOOGLE OAUTH CONFIGURATION ---
+        // Credentials are now managed via the application UI (Settings > Account / Storage)
+        // and stored securely in the local database. Do not hardcode secrets here.
+
+
+        // Migrations for existing DBs
+        const migrations = [
+            `ALTER TABLE contracts ADD COLUMN category TEXT DEFAULT 'Other'`,
+            `ALTER TABLE contracts ADD COLUMN billing_cycle TEXT DEFAULT 'Monthly'`,
+            `ALTER TABLE contracts ADD COLUMN start_date TEXT`,
+            `ALTER TABLE contracts ADD COLUMN contract_end_date TEXT`,
+            `ALTER TABLE contracts ADD COLUMN notes TEXT`,
+            `ALTER TABLE contracts ADD COLUMN created_at TEXT`,
+            `ALTER TABLE contracts ADD COLUMN status TEXT DEFAULT 'active'`
+        ];
+        migrations.forEach(sql => db.run(sql, () => {}));
+    });
+});
+
+
+// Event buses for inter-process communication
 const authBus = new EventEmitter();
 const updateBus = new EventEmitter();
 let updateProgress = { percent: 0, bytesPerSecond: 0, transferred: 0, total: 0, status: 'idle' };
+
+// --- CRON JOB: Daily Contract Expiry Check (Noon) ---
+cron.schedule('0 12 * * *', () => {
+    db.get("SELECT value FROM settings WHERE key = 'xeck_login_mode'", (err, modeRow) => {
+        const isLocal = !modeRow || modeRow.value === 'local';
+        // If user is in Google mode, we rely on Google Calendar reminders instead of local tray pops
+        if (!isLocal) return;
+
+        const today = new Date();
+        db.all("SELECT * FROM contracts", [], (err, rows) => {
+            if (err || !rows) return;
+            rows.forEach(c => {
+                if (c.status === 'archived') return;
+
+                let sDate = c.permanencia_end_date || c.contract_end_date;
+                if (!sDate) return;
+                let parts = sDate.split('/');
+                if (parts.length !== 3) return;
+                let extDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T00:00:00`);
+                if (isNaN(extDate)) return;
+                
+                const diffTime = extDate - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                if (diffDays > 0 && diffDays <= 60) {
+                    updateBus.emit('show-notification', {
+                        title: `Xeck: Renovation Reminder`,
+                        body: `Your contract "${c.title}" expires in ${diffDays} days.`
+                    });
+                }
+            });
+        });
+    });
+});
 
 
 const CATEGORY_I18N = {
@@ -39,24 +134,18 @@ function getAllPossibleCategoryNames(catKey) {
     return Array.from(names);
 }
 
-const { OAuth2Client } = require('google-auth-library');
-const { google } = require('googleapis');
-const app = express();
 const port = 3000;
 
-const DATA_DIR = process.env.XECK_DATA_DIR || __dirname;
-console.log(`[Server] Using Data Directory: ${DATA_DIR}`);
-
-const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+const UPLOADS_DIR = path.join(dataDir, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
-const CONTRACTS_DIR = path.join(DATA_DIR, 'Contracts');
+const CONTRACTS_DIR = path.join(dataDir, 'Contracts');
 if (!fs.existsSync(CONTRACTS_DIR)) fs.mkdirSync(CONTRACTS_DIR, { recursive: true });
 
 app.use(cors());
 app.use(express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(DATA_DIR, 'uploads')));
-app.use('/Contracts', express.static(path.join(DATA_DIR, 'Contracts')));
+app.use('/uploads', express.static(path.join(dataDir, 'uploads')));
+app.use('/Contracts', express.static(path.join(dataDir, 'Contracts')));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -79,54 +168,6 @@ function getTranslatedCategoryName(categoryKey, lang = current_language) {
     return langMap[key] || categoryKey;
 }
 
-const DB_FILE = path.join(DATA_DIR, 'contracts.db');
-let db;
-
-function connectDB() {
-    db = new sqlite3.Database(DB_FILE, (err) => {
-        if (err) { console.error('Error opening database', err.message); return; }
-        console.log('Connected to the SQLite database.');
-
-        db.serialize(() => {
-            db.run(`CREATE TABLE IF NOT EXISTS contracts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                category TEXT DEFAULT 'Other',
-                monthly_cost REAL DEFAULT 0,
-                billing_cycle TEXT DEFAULT 'Monthly',
-                start_date TEXT,
-                contract_end_date TEXT,
-                permanencia_end_date TEXT,
-                notes TEXT,
-                file_path TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )`);
-
-            db.run(`CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            )`);
-
-            // --- GOOGLE OAUTH CONFIGURATION ---
-            // Credentials are now managed via the application UI (Settings > Account / Storage)
-            // and stored securely in the local database. Do not hardcode secrets here.
-
-
-            // Migrations for existing DBs
-            const migrations = [
-                `ALTER TABLE contracts ADD COLUMN category TEXT DEFAULT 'Other'`,
-                `ALTER TABLE contracts ADD COLUMN billing_cycle TEXT DEFAULT 'Monthly'`,
-                `ALTER TABLE contracts ADD COLUMN start_date TEXT`,
-                `ALTER TABLE contracts ADD COLUMN contract_end_date TEXT`,
-                `ALTER TABLE contracts ADD COLUMN notes TEXT`,
-                `ALTER TABLE contracts ADD COLUMN created_at TEXT`
-            ];
-            migrations.forEach(sql => db.run(sql, () => {}));
-        });
-    });
-}
-connectDB();
-
 // Multer for contract documents
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_DIR),
@@ -139,14 +180,14 @@ const upload = multer({ storage });
 
 // Multer for backup import
 const importUpload = multer({ storage: multer.diskStorage({
-    destination: (req, file, cb) => cb(null, DATA_DIR),
+    destination: (req, file, cb) => cb(null, dataDir),
     filename: (req, file, cb) => cb(null, 'imported_backup.zip')
 })});
 
 // Multer for AI analysis (keep in memory, max 20MB per file, max 10 files)
 const analyzeUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
-// 鈹€鈹€鈹€ SETTINGS API 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── SETTINGS API ────────────────────────────────────────────────────────────────────
 app.get('/api/auth/status', (req, res) => {
     db.get("SELECT 1 FROM settings WHERE key = 'google_tokens'", (err, row) => {
         res.json({ authenticated: !!row });
@@ -361,19 +402,19 @@ app.post('/api/ai-advice', async (req, res) => {
             }));
 
             const advicePrompt = `
-You are a senior professional contract management consultant. 
-Analyze the following user contract data and provide strategic advice.
+You are a senior negotiation specialist and contract consultant for consumers in Spain (or the user's local market).
+Analyze the following user contract data:
 User contracts: ${JSON.stringify(contractsSummary)}
 
 Please provide:
-1. **Financial Audit**: Identify high-expense categories and total monthly commitment.
-2. **Upcoming Risks**: Warn about contracts ending soon or those with complex billing.
-3. **Saving Opportunities**: Suggest where the user could bundle services (e.g., combining mobile and internet) or renegotiate.
-4. **Actionable Suggestions**: 3-5 clear, professional steps to optimize their current portfolio.
+1. **Financial Audit**: Identify high-expense items and their current lock-in/permanencia status.
+2. **Current Market Rates**: Use your knowledge (and live search if enabled) to estimate current competitive market rates for their most expensive service (e.g., Digi, O2, Orange for telcos; current indexed prices for energy).
+3. **Negotiation Strategy ("Amago" / Retention dept)**: For the most overpriced/expiring contract, write a detailed, step-by-step Spanish negotiation script that the user can read directly over the phone to their provider's retention department to lower their bill, referencing the competitor's price.
+4. **Actionable Summary**: What exact action should the user take today?
 
 IMPORTANT: 
-- Provide the response in ${lang === 'zh' ? 'Chinese' : lang === 'es' ? 'Spanish' : 'English'}.
-- Use professional, helpful, and concise language.
+- Provide the response in ${lang === 'zh' ? 'Chinese (except for the Spanish phone script)' : lang === 'es' ? 'Spanish' : 'English (except for the Spanish phone script)'}.
+- Be incredibly specific about estimated prices, competitor names, and the exact words to say on the phone.
 - Format with Markdown (bolding, lists).
 `;
 
@@ -394,7 +435,10 @@ IMPORTANT:
                     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ parts: [{ text: advicePrompt }] }] })
+                        body: JSON.stringify({ 
+                            contents: [{ parts: [{ text: advicePrompt }] }],
+                            tools: [{ googleSearch: {} }] 
+                        })
                     });
                     const d = await r.json();
                     resultText = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -504,8 +548,16 @@ OUTPUT: Return ONLY a single valid JSON object. No markdown code blocks, no expl
   "start_date": DD/MM/YYYY or "",
   "contract_end_date": DD/MM/YYYY or "",
   "permanencia_end_date": DD/MM/YYYY or "" (lock-in/permanencia expiry),
-  "notes": string in ${notesLang} — bullet-point summary: provider, product, actual recurring price, duration, important conditions
+  "notes": string in ${notesLang} — bullet-point summary including: provider, product, Policy Number (if applicable), Customer/Emergency Phone Numbers, core coverage, actual recurring price, duration, and important conditions.
 }
+
+---EMERGENCY & SUPPORT EXTRACTION---
+If the document is an Insurance policy, Utility contract, or service agreement, you MUST explicitly look for and extract:
+- Policy Number / Reference Number
+- Customer Service Phone Number
+- Emergency / Technical Support Phone Number
+- Core Coverage summary (e.g. "Full coverage car insurance", "Fiber 1GB + 2 Mobile Lines")
+Always put these prominently at the beginning of the "notes" field as bullet points so the user can easily find them in an emergency.
 
 ---COST EXTRACTION — MOST CRITICAL PART---
 You MUST distinguish between:
@@ -705,13 +757,75 @@ app.get('/api/version', (req, res) => {
     }
 });
 
-// 鈹€鈹€鈹€ CONTRACTS API 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── CONTRACTS API ───────────────────────────────────────────────────────────────────
 app.get('/api/contracts', (req, res) => {
-    db.all(`SELECT * FROM contracts ORDER BY id DESC`, [], (err, rows) => {
+    const { all } = req.query;
+    // Default: only fetch active (or null for legacy rows)
+    const whereClause = all === 'true' ? '' : `WHERE status = 'active' OR status IS NULL`;
+    
+    db.all(`SELECT * FROM contracts ${whereClause}`, [], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
+        
+        // Custom Sort: earliest permanencia_end_date or contract_end_date ASC
+        const parseDateVal = (dStr) => {
+            if (!dStr) return 9999999999999;
+            const p = dStr.split('/');
+            if (p.length === 3) return new Date(`${p[2]}-${p[1]}-${p[0]}T00:00:00`).getTime();
+            const dt = new Date(dStr);
+            return isNaN(dt.getTime()) ? 9999999999999 : dt.getTime();
+        };
+
+        rows.sort((a, b) => {
+            const dA = Math.min(parseDateVal(a.permanencia_end_date), parseDateVal(a.contract_end_date));
+            const dB = Math.min(parseDateVal(b.permanencia_end_date), parseDateVal(b.contract_end_date));
+            return dA - dB;
+        });
+
         res.json(rows);
     });
 });
+
+app.post('/api/contracts/:id/renew', upload.array('document', 10), (req, res) => {
+    const { monthly_cost, start_date, contract_end_date, permanencia_end_date } = req.body;
+    db.get(`SELECT * FROM contracts WHERE id = ?`, [req.params.id], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: 'Not found' });
+        
+        db.get("SELECT value FROM settings WHERE key = 'xeck_login_mode'", (err, modeRow) => {
+            const isLocal = !modeRow || modeRow.value === 'local';
+            
+            // 1. Archive old
+            db.run(`UPDATE contracts SET status = 'archived' WHERE id = ?`, [row.id], (err) => {
+                if(err) return res.status(500).json({ error: err.message });
+                
+                // 2. Insert new
+                let file_path = row.file_path;
+                if (req.files && req.files.length > 0) {
+                    file_path = moveAndRenameFiles(req.files, row.category, row.title);
+                }
+
+                db.run(
+                    `INSERT INTO contracts (title, category, monthly_cost, billing_cycle, start_date, contract_end_date, permanencia_end_date, notes, file_path, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+                    [row.title, row.category, monthly_cost ?? row.monthly_cost, row.billing_cycle, start_date || null, contract_end_date || null, permanencia_end_date || null, row.notes, file_path],
+                    function(err) {
+                        if (err) return res.status(500).json({ error: err.message });
+                        const newId = this.lastID;
+                        const result = { id: newId, title: row.title, category: row.category, monthly_cost, billing_cycle: row.billing_cycle, start_date, contract_end_date, permanencia_end_date, notes: row.notes, file_path, status: 'active' };
+                        res.json(result);
+                        
+                        if (isLocal) {
+                            saveLocalMetadata(result.category, result.title, result);
+                        } else {
+                            triggerBackgroundSync();
+                            addCalendarEvent(result);
+                        }
+                    }
+                );
+            });
+        });
+    });
+});
+
 
 app.get('/api/contracts/:id', (req, res) => {
     db.get(`SELECT * FROM contracts WHERE id = ?`, [req.params.id], (err, row) => {
@@ -751,6 +865,7 @@ app.post('/api/contracts', upload.array('document', 10), (req, res) => {
                     saveLocalMetadata(category, title, result);
                 } else {
                     triggerBackgroundSync();
+                    addCalendarEvent(result);
                 }
             }
         );
@@ -815,10 +930,10 @@ app.delete('/api/contracts/:id', (req, res) => {
         if (row.file_path) {
             if (row.file_path.startsWith('Contracts/')) {
                 // Local Mode structured storage
-                targetDir = path.join(DATA_DIR, path.dirname(row.file_path));
+                targetDir = path.join(dataDir, path.dirname(row.file_path));
             } else {
                 // Cloud Mode flat storage (uploads/)
-                specificFile = path.join(DATA_DIR, row.file_path);
+                specificFile = path.join(dataDir, row.file_path);
             }
         }
         
@@ -855,13 +970,13 @@ app.delete('/api/contracts/:id', (req, res) => {
     });
 });
 
-// 鈹€鈹€鈹€ BACKUP 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// ─── BACKUP ──────────────────────────────────────────────────────────────────────────
 app.get('/api/export', (req, res) => {
     res.attachment('xeck_backup.zip');
     const archive = archiver('zip', { zlib: { level: 9 } });
     archive.on('error', err => res.status(500).send({ error: err.message }));
     archive.pipe(res);
-    archive.file(DB_FILE, { name: 'contracts.db' });
+    archive.file(dbPath, { name: 'contracts.db' });
     archive.directory(UPLOADS_DIR, 'uploads'); // Keep for legacy files
     if (fs.existsSync(CONTRACTS_DIR)) archive.directory(CONTRACTS_DIR, 'Contracts'); // New structure
     archive.finalize();
@@ -872,12 +987,20 @@ app.post('/api/import', importUpload.single('backup'), (req, res) => {
     db.close(err => {
         if (err) return res.status(500).json({ error: 'Failed to close DB' });
         try {
-            new AdmZip(req.file.path).extractAllTo(DATA_DIR, true);
+            new AdmZip(req.file.path).extractAllTo(dataDir, true);
             fs.unlinkSync(req.file.path);
-            connectDB();
+            // Reconnect DB after import
+            db = new sqlite3.Database(dbPath, (err) => {
+                if (err) console.error('Error opening database after import', err.message);
+                else console.log('Reconnected to the SQLite database after import.');
+            });
             res.json({ message: 'Backup imported!' });
         } catch (e) {
-            connectDB();
+            // Reconnect DB even if extraction fails
+            db = new sqlite3.Database(dbPath, (err) => {
+                if (err) console.error('Error opening database after failed import', err.message);
+                else console.log('Reconnected to the SQLite database after failed import.');
+            });
             res.status(500).json({ error: 'Failed to extract backup.' });
         }
     });
@@ -920,7 +1043,8 @@ app.get('/api/auth/google/url', async (req, res) => {
         scope: [
             'https://www.googleapis.com/auth/userinfo.profile',
             'https://www.googleapis.com/auth/userinfo.email',
-            'https://www.googleapis.com/auth/drive.file'
+            'https://www.googleapis.com/auth/drive.file',
+            'https://www.googleapis.com/auth/calendar.events'
         ]
     });
     res.json({ url });
@@ -1311,6 +1435,50 @@ async function deleteFromDrive(drive, rootId, contractId, title, category, fileN
     }
 }
 
+// --- GOOGLE CALENDAR EVENT ---
+async function addCalendarEvent(contract) {
+    db.get("SELECT value FROM settings WHERE key = 'google_tokens'", async (err, row) => {
+        if (!row || !row.value) return;
+        try {
+            const { google_client_id, google_client_secret } = await getGoogleConfig();
+            if (!google_client_id) return;
+            const client = new OAuth2Client(google_client_id, google_client_secret, getRedirectUri());
+            client.setCredentials(JSON.parse(row.value));
+            
+            const calendar = google.calendar({version: 'v3', auth: client});
+            
+            const targetDateStr = contract.permanencia_end_date || contract.contract_end_date;
+            if (!targetDateStr) return;
+            
+            const [d, m, y] = targetDateStr.split('/');
+            if (!d || !m || !y) return;
+            const eventDate = `${y}-${m}-${d}T10:00:00`;
+            const endDate = `${y}-${m}-${d}T11:00:00`;
+            
+            const event = {
+                summary: `Xeck Renewal: ${contract.title}`,
+                description: `Xeck Automated Reminder\nCategory: ${contract.category}\nCost: ${contract.monthly_cost}`,
+                start: { dateTime: eventDate, timeZone: 'UTC' },
+                end: { dateTime: endDate, timeZone: 'UTC' },
+                reminders: {
+                    useDefault: false,
+                    overrides: [
+                        { method: 'email', minutes: 30 * 24 * 60 } // 30 days before
+                    ]
+                }
+            };
+
+            await calendar.events.insert({
+                calendarId: 'primary',
+                resource: event,
+            });
+            console.log('[Calendar] Created event for ' + contract.title);
+        } catch (e) {
+            console.error('[Calendar] Error creating event:', e.message);
+        }
+    });
+}
+
 async function triggerBackgroundSync() {
     try {
         const drive = await getDriveClient();
@@ -1463,7 +1631,7 @@ app.post('/api/sync', async (req, res) => {
     }
 });
 
-const server = app.listen(0, async () => {
+server.listen(0, async () => {
     const port = server.address().port;
     console.log(`Xeck backend running at http://localhost:${port}`);
     
