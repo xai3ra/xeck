@@ -107,12 +107,10 @@ function connectDB() {
                 value TEXT
             )`);
 
-            // --- AUTO-CONFIGURE GOOGLE OAUTH ---
-            const GOOGLE_CLIENT_ID = "72199376080-i9nv5ru4vcg0p9uvbvfssi8ej162lbii.apps.googleusercontent.com";
-            const GOOGLE_CLIENT_SECRET = "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";
-            
-            db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('google_client_id', ?)", [GOOGLE_CLIENT_ID]);
-            db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('google_client_secret', ?)", [GOOGLE_CLIENT_SECRET]);
+            // --- GOOGLE OAUTH CONFIGURATION ---
+            // Credentials are now managed via the application UI (Settings > Account / Storage)
+            // and stored securely in the local database. Do not hardcode secrets here.
+
 
             // Migrations for existing DBs
             const migrations = [
